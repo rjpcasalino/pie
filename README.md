@@ -14,6 +14,8 @@ nix build -L .#nixosConfigurations.zero2w.config.system.build.sdImage
 3. Copy the image in your sd card
 
 ```sh
+sudo rpi-imager
+# or use dd
 DEVICE=/dev/disk5 # Whatever your sd card reader is
 sudo dd if=result/sd-image/zero2.img of=$DEVICE bs=1M conv=fsync status=progress
 ```
