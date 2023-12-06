@@ -39,6 +39,11 @@
           profiles.system.path =
             deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.zeroCool2w;
         };
+        pi3 = {
+          hostname = "nintendo";
+          profiles.system.path =
+            deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3;
+        };
       };
     };
   };
