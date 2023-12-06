@@ -24,6 +24,12 @@
           ./zeroCool2w.nix
         ];
       };
+      pi3Bplus = nixpkgs.lib.nixosSystem {
+        modules = [
+          "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          ./pi3Bplus.nix
+        ];
+      };
     };
 
     deploy = {
@@ -39,7 +45,7 @@
           profiles.system.path =
             deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.zeroCool2w;
         };
-        pi3 = {
+        pi3Bplus = {
           hostname = "nintendo";
           profiles.system.path =
             deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3;
