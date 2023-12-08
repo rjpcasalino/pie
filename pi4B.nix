@@ -5,9 +5,9 @@
       userControlled.enable = true;
       interfaces = [ "wlan0" ];
       networks = {
-        "Nobby2G" = {
+        "XXXXX" = {
           hidden = true;
-          psk = "duffman2415";
+          psk = "XXXXX";
         };
       };
     };
