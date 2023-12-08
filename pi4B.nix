@@ -1,4 +1,5 @@
-  networking = {
+{ pkgs, ... }: {  
+networking = {
     interfaces."wlan0".useDHCP = true;
     wireless = {
       enable = true;
@@ -21,6 +22,7 @@
   ];
 
   services.sshd.enable = true;
+  # TODO: move to common
   # NTP time sync.
   services.timesyncd.enable = true;
   services.xserver = {
