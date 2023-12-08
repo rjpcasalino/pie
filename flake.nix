@@ -15,19 +15,29 @@
       zero2w = nixpkgs.lib.nixosSystem {
         modules = [
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          ./common.nix
           ./zero2w.nix
         ];
       };
       zeroCool2w = nixpkgs.lib.nixosSystem {
         modules = [
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          ./common.nix
           ./zeroCool2w.nix
         ];
       };
       pi3Bplus = nixpkgs.lib.nixosSystem {
         modules = [
           "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          ./common.nix
           ./pi3Bplus.nix
+        ];
+      };
+      pi4B = nixpkgs.lib.nixosSystem {
+        modules = [
+          "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          ./common.nix
+          ./pi4B.nix
         ];
       };
     };
