@@ -1,5 +1,5 @@
 {
-  description = "Flake for building a Raspberry Pi Zero 2 SD images";
+  description = "Flake for building a Raspberry Pi SD images";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
