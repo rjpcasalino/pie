@@ -58,7 +58,12 @@
         pi3Bplus = {
           hostname = "nintendo";
           profiles.system.path =
-            deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3;
+            deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3Bplus;
+        };
+        pi4B = {
+          hostname = "madison";
+          profiles.system.path =
+            deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi4B;
         };
       };
     };
