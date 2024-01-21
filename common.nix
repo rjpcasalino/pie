@@ -99,4 +99,20 @@
     wheelNeedsPassword = false;
   };
   services.getty.autologinUser = "rjpc";
+
+  networking = {
+    interfaces."wlan0".useDHCP = true;
+    wireless = {
+      environmentFile = /. + "./secrets/wireless.env";
+      enable = true;
+      userControlled.enable = true;
+      interfaces = [ "wlan0" ];
+      networks = {
+        "@SSID@" = {
+          hidden = true;
+          psk = "@PSK@";
+        };
+      };
+    };
+  };
 }

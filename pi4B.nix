@@ -1,20 +1,5 @@
 { pkgs, ... }: {
 
-  networking = {
-    interfaces."wlan0".useDHCP = true;
-    wireless = {
-      enable = true;
-      userControlled.enable = true;
-      interfaces = [ "wlan0" ];
-      networks = {
-        "XXXXXX" = {
-          hidden = true;
-          psk = "XXXXXX";
-        };
-      };
-    };
-  };
-
   environment.systemPackages = with pkgs; [
     neofetch
   ];

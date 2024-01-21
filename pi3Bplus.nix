@@ -1,22 +1,6 @@
-{ pkgs, ... }: {
+{ pkgs, config, ... }: {
 
-  networking = {
-    interfaces."wlan0".useDHCP = true;
-    hostName = "nintendo";
-    wireless = {
-      enable = true;
-      userControlled.enable = true;
-      interfaces = [ "wlan0" ];
-      # FIXME
-      # need to either use sops or something
-      networks = {
-        "XXXXX" = {
-          hidden = true;
-          psk = "XXXXXX";
-        };
-      };
-    };
-  };
+  networking.hostName = config.bar;
 
   environment.systemPackages = with pkgs; [
     neofetch

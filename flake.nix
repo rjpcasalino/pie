@@ -34,6 +34,17 @@
         };
         pi3Bplus = nixpkgs.lib.nixosSystem {
           modules = [
+            ({ config, pkgs, lib, ... }:
+              {
+                options = with lib; with types; {
+                  foo = mkOption { type = int; };
+                  bar = mkOption { type = str; };
+                };
+                config = {
+                  foo = 10;
+                  bar = "jello";
+                };
+              })
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
             ./common.nix
             ./pi3Bplus.nix
