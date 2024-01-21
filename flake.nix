@@ -20,9 +20,26 @@
     , deploy-rs
     ,
     }: rec {
+      opts = ({ config, pkgs, lib, ... }:
+        {
+          options = with lib; with types; {
+            hostname = mkOption { type = str; };
+            # default is zsh
+            # FIXME:
+            # for some reason I can't set this
+            # in common.nix?
+            shell = mkOption { type = str; };
+          };
+          config = { };
+        });
       nixosConfigurations = {
         zero2w = nixpkgs.lib.nixosSystem {
           modules = [
+            opts
+            {
+              hostname = "nemo";
+              shell = "bash";
+            }
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
             ./common.nix
             ./zero2w.nix
@@ -37,15 +54,10 @@
         };
         pi3Bplus = nixpkgs.lib.nixosSystem {
           modules = [
-            ({ config, pkgs, lib, ... }:
-              {
-                options = with lib; with types; {
-                  hostname = mkOption { type = str; };
-                };
-                config = {
-                  hostname = "nintendo";
-                };
-              })
+            opts
+            {
+              hostname = "nintendo";
+            }
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
             ./common.nix
             ./pi3Bplus.nix
@@ -58,7 +70,7 @@
             home-manager.nixosModules.home-manager
             {
               home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = false;
+              home-manager.useUserPackages = true;
               home-manager.users.rjpc = import ./home.nix;
             }
             ./pi4B.nix
