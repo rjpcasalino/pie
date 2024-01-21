@@ -1,6 +1,6 @@
 { pkgs, config, ... }: {
 
-  networking.hostName = config.bar;
+  networking.hostName = config.hostname;
 
   environment.systemPackages = with pkgs; [
     neofetch

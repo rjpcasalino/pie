@@ -7,7 +7,10 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    deploy-rs.url = "github:serokell/deploy-rs";
+    deploy-rs = {
+      url = "github:serokell/deploy-rs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -37,12 +40,10 @@
             ({ config, pkgs, lib, ... }:
               {
                 options = with lib; with types; {
-                  foo = mkOption { type = int; };
-                  bar = mkOption { type = str; };
+                  hostname = mkOption { type = str; };
                 };
                 config = {
-                  foo = 10;
-                  bar = "jello";
+                  hostname = "nintendo";
                 };
               })
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
