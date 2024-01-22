@@ -1,8 +1,4 @@
-{ lib
-, modulesPath
-, pkgs
-, ...
-}: {
+{ lib, modulesPath, pkgs, config, ...}: {
   imports = [
     ./sd-image.nix
   ];
@@ -87,7 +83,8 @@
   users.users.rjpc = {
     isNormalUser = true;
     home = "/home/rjpc";
-    shell = "${pkgs.zsh}${pkgs.zsh.shellPath}";
+    # FIXME:
+    # shell is set in pi file
     description = "Ryan J.P. Casalino";
     hashedPassword = "$y$j9T$sGr6gwgrau81kZnyzeqFq1$vzXrHa208anPwSWdR40fZ49l7Keb9A.i1Mw.sDM5rA6";
     extraGroups = [ "wheel" "networkmanager" ];
@@ -103,7 +100,9 @@
   networking = {
     interfaces."wlan0".useDHCP = true;
     wireless = {
-      environmentFile = /. + "./secrets/wireless.env";
+      # FIXME:
+      # the env file must already be present on the remote
+      environmentFile = /. + "home/rjpc/secrets/wireless.env";
       enable = true;
       userControlled.enable = true;
       interfaces = [ "wlan0" ];
