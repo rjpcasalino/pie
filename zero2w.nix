@@ -1,6 +1,11 @@
-{ pkgs, config, lib, ... }: {
-
-  users.users.rjpc.shell = lib.mkMerge [(lib.mkIf (config.shell == "bash") "${pkgs.bashInteractive}${pkgs.bashInteractive.shellPath}") (lib.mkIf (config.shell == "zsh") "${pkgs.zsh}${pkgs.zsh.shellPath}")];
+{ pkgs, config, lib, ... }:
+let
+  cfgShell = config.shell;
+  bash = "${pkgs.bashInteractive}${pkgs.bashInteractive.shellPath}";
+  zsh = "${pkgs.zsh}${pkgs.zsh.shellPath}";
+in
+{
+  users.users.rjpc.shell = lib.mkMerge [ (lib.mkIf (cfgShell == "bash") bash) (lib.mkIf (cfgShell == "zsh") zsh) ];
   networking.hostName = config.hostname;
   environment.systemPackages = with pkgs; [
     neofetch
