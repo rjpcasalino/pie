@@ -24,10 +24,8 @@
         {
           options = with lib; with types; {
             hostname = mkOption { type = str; };
-            # default is zsh
-            # FIXME:
-            # for some reason I can't set this
-            # in common.nix?
+            # default is bash
+            # FIXME: for some reason I can't set this in common.nix
             shell = mkOption { type = str; };
           };
           config = { };
@@ -57,6 +55,7 @@
             opts
             {
               hostname = "nintendo";
+              shell = "zsh";
             }
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
             ./common.nix
