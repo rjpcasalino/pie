@@ -1,5 +1,5 @@
 {
-  description = "Flake for building and deployoing Raspberry Pi devices and bufflehead";
+  description = "Flake for building and deploying Raspberry Pi devices and bufflehead";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";

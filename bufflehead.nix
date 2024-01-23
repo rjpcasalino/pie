@@ -6,7 +6,7 @@ let
 in
 {
   imports = [
-    ./bf-hardware-configuration.nix
+    ./bh-hardware-configuration.nix
   ];
 
   boot.loader.systemd-boot.enable = true;
