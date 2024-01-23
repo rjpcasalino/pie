@@ -1,5 +1,5 @@
 {
-  description = "Flake for building a Raspberry Pi SD images";
+  description = "Flake for building and deployoing Raspberry Pi devices and bufflehead";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -31,6 +31,16 @@
           config = { };
         });
       nixosConfigurations = {
+        bufflehead = nixpkgs.lib.nixosSystem {
+          modules = [
+            opts
+            {
+              hostname = "bufflehead";
+              shell = "zsh";
+            }
+            ./bufflehead.nix
+          ];
+        };
         zero2w = nixpkgs.lib.nixosSystem {
           modules = [
             opts
@@ -80,6 +90,11 @@
       deploy = {
         user = "root";
         nodes = {
+          bufflehead = {
+            hostname = "bufflehead";
+            profiles.system.path =
+              deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.bufflehead;
+          };
           zero2w = {
             hostname = "nemo";
             profiles.system.path =
