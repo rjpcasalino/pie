@@ -1,4 +1,4 @@
-{ lib, modulesPath, pkgs, config, ...}: {
+{ lib, modulesPath, pkgs, config, ... }: {
   imports = [
     ./sd-image.nix
   ];
@@ -65,7 +65,7 @@
     displayManager.autoLogin.enable = true;
     displayManager.autoLogin.user = "rjpc";
     displayManager.lightdm = {
-      enable = true;
+      enable = false;
       background = pkgs.nixos-artwork.wallpapers.nineish-dark-gray.gnomeFilePath;
       greeters.gtk.indicators = [
         "~host"
@@ -77,7 +77,7 @@
       ];
       greeters.gtk.clock-format = "%A %F %I:%M %p";
     };
-    windowManager.cwm.enable = true;
+    windowManager.cwm.enable = false;
   };
 
   users.users.rjpc = {
@@ -113,5 +113,13 @@
         };
       };
     };
+    firewall.allowedTCPPorts = [ 80 443 ];
+    # TFTP
+    firewall.allowedUDPPortRanges = [
+      {
+        from = 69;
+        to = 150;
+      }
+    ];
   };
 }

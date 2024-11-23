@@ -8,8 +8,9 @@ in
   users.users.rjpc.shell = lib.mkMerge [ (lib.mkIf (cfgShell == "bash") bash) (lib.mkIf (cfgShell == "zsh") zsh) ];
   networking.hostName = config.hostname;
   environment.systemPackages = with pkgs; [
+    busybox
     neofetch
-    xscreensaver
-    wget
+    static-web-server
   ];
+  services.atftpd.enable = true;
 }

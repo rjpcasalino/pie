@@ -14,15 +14,17 @@ in
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   networking.hostName = config.hostname;
-  networking.wireless.enable = true;
-  networking.wireless.environmentFile = /. + "home/rjpc/secrets/wireless.env";
-  networking.wireless.userControlled.enable = true;
-  networking.wireless.iwd.enable = false;
-  networking.wireless.scanOnLowSignal = false;
-  networking.wireless.networks = {
-    "@SSID@" = {
-      psk =
-        "@PSK@";
+  networking.wireless = {
+    enable = true;
+    environmentFile = /. + "home/rjpc/secrets/wireless.env";
+    userControlled.enable = true;
+    iwd.enable = false;
+    scanOnLowSignal = false;
+    networks = {
+      "@SSID@" = {
+        psk =
+          "@PSK@";
+      };
     };
   };
 
@@ -31,8 +33,8 @@ in
   networking.interfaces.wlp0s20f3.useDHCP = true;
   networking.nameservers = [ "192.168.0.149" ];
   networking.enableIPv6 = true;
-
-  networking.firewall.allowedTCPPorts = [ 51413 ];
+  # what is 51413
+  networking.firewall.allowedTCPPorts = [ ];
   networking.firewall.enable = true;
   services.gpm.enable = true;
 
@@ -46,10 +48,7 @@ in
   };
 
   fonts.packages = with pkgs; [
-    liberation_ttf
     noto-fonts
-    noto-fonts-cjk
-    noto-fonts-emoji
   ];
 
   time.timeZone = "America/Los_Angeles";
@@ -116,15 +115,18 @@ in
     exportConfiguration = true;
     displayManager.startx.enable = true;
     windowManager.cwm.enable = true;
-    windowManager.i3.enable = false;
     videoDrivers = [ "modesetting" ];
   };
 
   ## MINIDLNA
-  services.minidlna.enable = true;
-  services.minidlna.openFirewall = true;
-  services.minidlna.settings.media_dir = [ "/mnt/sdb1" "/mnt/sdc1" "/mnt/sdd1" ];
-  services.minidlna.settings.inotify = "yes";
+  services.minidlna = {
+    enable = true;
+    openFirewall = true;
+    settings.media_dir = [ "/mnt/sdb1" "/mnt/sdc1" "/mnt/sdd1" ];
+    settings.inotify = "yes";
+  };
+  ##
+  services.openssh.enable = true;
 
   sound.enable = true;
   hardware.pulseaudio.enable = true;
@@ -137,7 +139,6 @@ in
       "cdrom"
       "lp"
       "lxd"
-      "scanner"
       "sound"
       "wheel"
     ];
@@ -158,8 +159,6 @@ in
     nixpkgs-fmt
     neofetch
   ];
-
-  services.openssh.enable = true;
 
   system.stateVersion = "22.11"; # Did you read the comment? Yes.
 }
