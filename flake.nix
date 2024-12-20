@@ -2,10 +2,18 @@
   description = "Flake for building and deploying Raspberry Pi devices and bufflehead";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs = {
+      # unstable¬
+      url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.0.tar.gz";
+      # stable¬
+      #url = "https://flakehub.com/f/NixOS/nixpkgs/*.tar.gz";
+    };
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    determinate = {
+      url = "https://flakehub.com/f/DeterminateSystems/determinate/0.1";
     };
     deploy-rs = {
       url = "github:serokell/deploy-rs";
@@ -15,6 +23,7 @@
 
   outputs =
     { self
+    , determinate
     , nixpkgs
     , home-manager
     , deploy-rs
@@ -39,6 +48,7 @@
               shell = "zsh";
             }
             ./bufflehead.nix
+            determinate.nixosModules.default
           ];
         };
         zero2w = nixpkgs.lib.nixosSystem {

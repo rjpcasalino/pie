@@ -33,7 +33,6 @@ in
   networking.interfaces.wlp0s20f3.useDHCP = true;
   networking.nameservers = [ "192.168.0.149" ];
   networking.enableIPv6 = true;
-  # what is 51413
   networking.firewall.allowedTCPPorts = [ ];
   networking.firewall.enable = true;
   services.gpm.enable = true;
