@@ -1,9 +1,5 @@
 { config, pkgs, lib, ... }:
-let
-  cfgShell = config.shell;
-  bash = "${pkgs.bashInteractive}${pkgs.bashInteractive.shellPath}";
-  zsh = "${pkgs.zsh}${pkgs.zsh.shellPath}";
-in
+
 {
   imports = [
     ./bh-hardware-configuration.nix
@@ -13,17 +9,15 @@ in
   boot.loader.efi.canTouchEfiVariables = true;
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
-  networking.hostName = config.hostname;
+  networking.hostName = "bufflehead";
   networking.wireless = {
     enable = true;
-    environmentFile = /. + "home/rjpc/secrets/wireless.env";
     userControlled.enable = true;
     iwd.enable = false;
     scanOnLowSignal = false;
     networks = {
-      "@SSID@" = {
-        psk =
-          "@PSK@";
+      "FIXME" = {
+        psk = "thisGetsSavedToNixStore";
       };
     };
   };
@@ -69,7 +63,6 @@ in
   nixpkgs.config.allowUnfree = true;
 
   nix = {
-    package = pkgs.nixUnstable;
     settings = {
       auto-optimise-store = true;
       trusted-users = [ "@wheel" ];
@@ -127,9 +120,6 @@ in
   ##
   services.openssh.enable = true;
 
-  sound.enable = true;
-  hardware.pulseaudio.enable = true;
-
   users.users.rjpc = {
     isNormalUser = true;
     extraGroups = [
@@ -141,7 +131,6 @@ in
       "sound"
       "wheel"
     ];
-    shell = lib.mkMerge [ (lib.mkIf (cfgShell == "bash") bash) (lib.mkIf (cfgShell == "zsh") zsh) ];
     openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNo24kFmOht87GEejqv4uWquucROWu4Fw8v8JaElomJ rjpc@zits" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDRD43YeRHIv/H4S8Hj9bw0uoGRo0W9mCMMOZvtHPBLi rjpc@air" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMM2gabh4hExixOKrLfrG029dA5TiKyr4SZB5BsJB65o rjpc@YF21" ];
     packages = with pkgs; [ ];
   };
