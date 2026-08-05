@@ -11,13 +11,16 @@
     home-manager = {
       url = "github:nix-community/home-manager/release-24.11";
       inputs.nixpkgs.follows = "nixpkgs";
-
     };
     determinate = {
       url = "https://flakehub.com/f/DeterminateSystems/determinate/0.1";
     };
     deploy-rs = {
       url = "github:serokell/deploy-rs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    agenix = {
+      url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -28,6 +31,7 @@
     , nixpkgs
     , home-manager
     , deploy-rs
+    , agenix
     ,
     }: rec {
       opts = ({ config, pkgs, lib, ... }:
@@ -55,6 +59,7 @@
               shell = "bash";
             }
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+            agenix.nixosModules.default
             ./common.nix
             ./zero2w.nix
           ];
@@ -62,6 +67,7 @@
         zeroCool2w = nixpkgs.lib.nixosSystem {
           modules = [
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+            agenix.nixosModules.default
             ./common.nix
             ./zeroCool2w.nix
           ];
@@ -74,6 +80,7 @@
               shell = "zsh";
             }
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+            agenix.nixosModules.default
             ./common.nix
             ./pi3Bplus.nix
           ];
@@ -81,6 +88,7 @@
         pi4B = nixpkgs.lib.nixosSystem {
           modules = [
             "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+            agenix.nixosModules.default
             ./common.nix
             home-manager.nixosModules.home-manager
             {
@@ -124,5 +132,7 @@
         };
       };
       checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
+      packages.aarch64-linux.agenix = agenix.packages.aarch64-linux.agenix;
+      packages.x86_64-linux.agenix = agenix.packages.x86_64-linux.agenix;
     };
 }
