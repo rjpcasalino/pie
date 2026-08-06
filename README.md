@@ -48,3 +48,4 @@ nix run github:serokell/deploy-rs .#zero2w -- --ssh-user $SSH_USER --hostname $Z
 
 ## See also
 - [this issue](https://github.com/NixOS/nixpkgs/issues/216886)
+- `impure` is required... not sure why `colmena apply --impure --on <target>`
