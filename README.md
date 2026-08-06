@@ -8,7 +8,7 @@ Many, many thanks, plmercereau!
 1. Update `<pi>.nix`
 
 In particular, don't forget:
-- to configure your wifi
+- to configure your wifi (you will now have to use `nmtui` on first login)
 - to add an admin user able to connect through ssh / password
 
 2. Build the image
@@ -26,17 +26,16 @@ sudo dd if=result/sd-image/<pi>.img of=$DEVICE bs=1M conv=fsync status=progress
 ```
 
 4. Boot your Pi
-5. Get your IP
+5. Connect to network
+6. Get your IP
 
 ```sh
 ifconfig wlan0
 ```
 
-6. From another machine, rebuild the system:
+7. From another machine, rebuild the system:
 ```sh
-PI_IP=<the-pi-ip>
-SSH_USER=<the-admin-user-in-the-pi>
-nix run github:serokell/deploy-rs .#zero2w -- --ssh-user $SSH_USER --hostname $ZERO2_IP
+colmena apply --impure --on zeroCool2w
 ```
 
 ## Notes
