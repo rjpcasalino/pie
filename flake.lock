@@ -327,9 +327,9 @@
     },
     "root": {
       "inputs": {
-        "deploy-rs": "deploy-rs",
         "determinate": "determinate",
-        "nixpkgs": "nixpkgs_4"
+        "nixpkgs": "nixpkgs_4",
+        "colmena": "colmena"
       }
     },
     "systems": {
