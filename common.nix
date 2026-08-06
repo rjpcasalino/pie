@@ -52,6 +52,31 @@
     };
   };
 
+  services.xserver = {
+    enable = true;
+    layout = "us";
+    autorun = true;
+    exportConfiguration = true;
+    desktopManager.xfce.enable = false;
+    displayManager.startx.enable = false;
+    displayManager.autoLogin.enable = true;
+    displayManager.autoLogin.user = "rjpc";
+    displayManager.lightdm = {
+      enable = true;
+      background = pkgs.nixos-artwork.wallpapers.nineish-dark-gray.gnomeFilePath;
+      greeters.gtk.indicators = [
+        "~host"
+        "~spacer"
+        "~clock"
+        "~spacer"
+        "~session"
+        "~power"
+      ];
+      greeters.gtk.clock-format = "%A %F %I:%M %p";
+    };
+    windowManager.cwm.enable = true;
+  };
+
   services.openssh = {
     enable = true;
     settings = {

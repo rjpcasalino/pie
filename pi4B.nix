@@ -17,9 +17,6 @@
     enable = true;
     autosuggestions.enable = true;
     syntaxHighlighting.enable = true;
-    interactiveShellInit = ''
-      source ${pkgs.zsh-git-prompt}/share/zsh-git-prompt/zshrc.sh
-    '';
   };
 
   programs.git = {

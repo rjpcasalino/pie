@@ -9,7 +9,6 @@ in
   networking.hostName = config.hostname;
   environment.systemPackages = with pkgs; [
     busybox
-    neofetch
     static-web-server
   ];
   services.atftpd.enable = true;

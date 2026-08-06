@@ -103,7 +103,7 @@
 
         zeroCool2w = {
           deployment = {
-            targetHost = "zerocool";
+            targetHost = "192.168.12.130";
             targetUser = "rjpc";
             # Build on deployer, push result — Pis are slow to compile
             buildOnTarget = false;

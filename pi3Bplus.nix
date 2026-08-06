@@ -3,7 +3,6 @@
   networking.hostName = config.hostname;
 
   environment.systemPackages = with pkgs; [
-    neofetch
     xscreensaver
     wget
   ];
