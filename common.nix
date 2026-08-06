@@ -86,23 +86,9 @@
   services.getty.autologinUser = "rjpc";
 
   networking = {
-    interfaces."wlan0".useDHCP = true;
-    wireless = {
-      # Seed this file on first boot:
-      #   echo -e "SSID=YourNetwork\nPSK=YourPassword" | \
-      #     ssh rjpc@<pi-ip> 'sudo install -m 0400 -o root /dev/stdin /run/secrets/wireless.env'
-      # Then: nixos-rebuild switch --target-host rjpc@<pi-ip> --use-remote-sudo --flake .#<host>
-      environmentFile = "/run/secrets/wireless.env";
-      enable = true;
-      userControlled.enable = true;
-      interfaces = [ "wlan0" ];
-      networks = {
-        "@SSID@" = {
-          hidden = true;
-          psk = "@PSK@";
-        };
-      };
-    };
+    # Use NetworkManager for wifi — credentials managed at runtime via nmcli:
+    #   nmcli device wifi connect <SSID> password <PSK>
+    networkmanager.enable = true;
     firewall.allowedTCPPorts = [ 80 443 ];
     # TFTP
     firewall.allowedUDPPortRanges = [
