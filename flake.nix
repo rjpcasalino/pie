@@ -3,21 +3,14 @@
 
   inputs = {
     nixpkgs = {
-      # unstable¬
-      # url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.0.tar.gz";
-      # stable¬
-      url = "https://flakehub.com/f/NixOS/nixpkgs/*.tar.gz";
-    };
-    home-manager = {
-      url = "github:nix-community/home-manager/release-24.11";
-      inputs.nixpkgs.follows = "nixpkgs";
-
+      # unstable
+      url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.0.tar.gz";
     };
     determinate = {
       url = "https://flakehub.com/f/DeterminateSystems/determinate/0.1";
     };
-    deploy-rs = {
-      url = "github:serokell/deploy-rs";
+    colmena = {
+      url = "github:zhaofengli/colmena";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -26,20 +19,29 @@
     { self
     , determinate
     , nixpkgs
-    , home-manager
-    , deploy-rs
+    , colmena
     ,
-    }: rec {
-      opts = ({ config, pkgs, lib, ... }:
-        {
-          options = with lib; with types; {
-            hostname = mkOption { type = str; };
-            # default is bash
-            # FIXME: for some reason I can't set this in common.nix
-            shell = mkOption { type = str; };
-          };
-          config = { };
-        });
+    }:
+    let
+      opts = ({ config, pkgs, lib, ... }: {
+        options = with lib; with types; {
+          hostname = mkOption { type = str; };
+          # default is bash
+          # FIXME: for some reason I can't set this in common.nix
+          shell = mkOption { type = str; };
+        };
+        config = { };
+      });
+
+      piModules = [
+        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        ./common.nix
+      ];
+    in
+    {
+      # nix run .#colmena -- apply --on zeroCool2w
+      packages.x86_64-linux.colmena = colmena.packages.x86_64-linux.colmena;
+
       nixosConfigurations = {
         bufflehead = nixpkgs.lib.nixosSystem {
           modules = [
@@ -48,81 +50,105 @@
           ];
         };
         zero2w = nixpkgs.lib.nixosSystem {
-          modules = [
+          modules = piModules ++ [
             opts
-            {
-              hostname = "nemo";
-              shell = "bash";
-            }
-            "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-            ./common.nix
+            { hostname = "nemo"; shell = "bash"; }
             ./zero2w.nix
           ];
         };
         zeroCool2w = nixpkgs.lib.nixosSystem {
-          modules = [
-            "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-            ./common.nix
-            ./zeroCool2w.nix
-          ];
+          modules = piModules ++ [ ./zeroCool2w.nix ];
         };
         pi3Bplus = nixpkgs.lib.nixosSystem {
-          modules = [
+          modules = piModules ++ [
             opts
-            {
-              hostname = "nintendo";
-              shell = "zsh";
-            }
-            "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-            ./common.nix
+            { hostname = "nintendo"; shell = "zsh"; }
             ./pi3Bplus.nix
           ];
         };
         pi4B = nixpkgs.lib.nixosSystem {
-          modules = [
-            "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-            ./common.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.rjpc = import ./home.nix;
-            }
+          modules = piModules ++ [
             ./pi4B.nix
           ];
         };
       };
 
-      deploy = {
-        user = "root";
-        nodes = {
-          bufflehead = {
-            hostname = "bufflehead";
-            profiles.system.path =
-              deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.bufflehead;
-          };
-          zero2w = {
-            hostname = "nemo";
-            profiles.system.path =
-              deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.zero2w;
-          };
-          zeroCool2w = {
-            hostname = "zerocool";
-            profiles.system.path =
-              deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.zeroCool2w;
-          };
-          pi3Bplus = {
-            hostname = "nintendo";
-            profiles.system.path =
-              deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3Bplus;
-          };
-          pi4B = {
-            hostname = "madison";
-            profiles.system.path =
-              deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi4B;
+      # Colmena deployment configuration
+      # Usage from bufflehead:
+      #   nix run .#colmena -- apply --on zeroCool2w
+      #   nix run .#colmena -- apply --on @pi
+      colmena = {
+        meta = {
+          nixpkgs = import nixpkgs { system = "x86_64-linux"; };
+          # Allow per-host nixpkgs (e.g. aarch64 for Pis)
+          nodeNixpkgs = {
+            zeroCool2w = import nixpkgs { system = "aarch64-linux"; };
+            zero2w     = import nixpkgs { system = "aarch64-linux"; };
+            pi3Bplus   = import nixpkgs { system = "aarch64-linux"; };
+            pi4B       = import nixpkgs { system = "aarch64-linux"; };
           };
         };
+
+        bufflehead = {
+          deployment = {
+            targetHost = "bufflehead";
+            targetUser = "rjpc";
+            tags = [ "desktop" ];
+          };
+          imports = [
+            ./bufflehead.nix
+            determinate.nixosModules.default
+          ];
+        };
+
+        zeroCool2w = {
+          deployment = {
+            targetHost = "192.168.12.130";
+            targetUser = "rjpc";
+            # Build on deployer, push result — Pis are slow to compile
+            buildOnTarget = false;
+            tags = [ "pi" "zero" ];
+          };
+          imports = piModules ++ [ ./zeroCool2w.nix ];
+        };
+
+        zero2w = {
+          deployment = {
+            targetHost = "nemo";
+            targetUser = "rjpc";
+            buildOnTarget = false;
+            tags = [ "pi" "zero" ];
+          };
+          imports = piModules ++ [
+            opts
+            { hostname = "nemo"; shell = "bash"; }
+            ./zero2w.nix
+          ];
+        };
+
+        pi3Bplus = {
+          deployment = {
+            targetHost = "nintendo";
+            targetUser = "rjpc";
+            buildOnTarget = false;
+            tags = [ "pi" ];
+          };
+          imports = piModules ++ [
+            opts
+            { hostname = "nintendo"; shell = "zsh"; }
+            ./pi3Bplus.nix
+          ];
+        };
+
+        pi4B = {
+          deployment = {
+            targetHost = "pi4b";
+            targetUser = "rjpc";
+            buildOnTarget = false;
+            tags = [ "pi" ];
+          };
+          imports = piModules ++ [ ./pi4B.nix ];
+        };
       };
-      checks = builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
     };
 }

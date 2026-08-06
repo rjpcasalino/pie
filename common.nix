@@ -52,9 +52,6 @@
     };
   };
 
-  services.sshd.enable = true;
-  # NTP time sync.
-  services.timesyncd.enable = true;
   services.xserver = {
     enable = true;
     layout = "us";
@@ -65,7 +62,7 @@
     displayManager.autoLogin.enable = true;
     displayManager.autoLogin.user = "rjpc";
     displayManager.lightdm = {
-      enable = false;
+      enable = true;
       background = pkgs.nixos-artwork.wallpapers.nineish-dark-gray.gnomeFilePath;
       greeters.gtk.indicators = [
         "~host"
@@ -77,8 +74,20 @@
       ];
       greeters.gtk.clock-format = "%A %F %I:%M %p";
     };
-    windowManager.cwm.enable = false;
+    windowManager.cwm.enable = true;
   };
+
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = false;
+      PermitRootLogin = "no";
+      KbdInteractiveAuthentication = false;
+    };
+  };
+
+  # NTP time sync.
+  services.timesyncd.enable = true;
 
   users.users.rjpc = {
     isNormalUser = true;
@@ -88,7 +97,11 @@
     description = "Ryan J.P. Casalino";
     hashedPassword = "$y$j9T$sGr6gwgrau81kZnyzeqFq1$vzXrHa208anPwSWdR40fZ49l7Keb9A.i1Mw.sDM5rA6";
     extraGroups = [ "wheel" "networkmanager" ];
-    openssh.authorizedKeys.keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNo24kFmOht87GEejqv4uWquucROWu4Fw8v8JaElomJ rjpc@zits" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDRD43YeRHIv/H4S8Hj9bw0uoGRo0W9mCMMOZvtHPBLi rjpc@air" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMM2gabh4hExixOKrLfrG029dA5TiKyr4SZB5BsJB65o rjpc@YF21" ];
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJNo24kFmOht87GEejqv4uWquucROWu4Fw8v8JaElomJ rjpc@zits"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDRD43YeRHIv/H4S8Hj9bw0uoGRo0W9mCMMOZvtHPBLi rjpc@air"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMM2gabh4hExixOKrLfrG029dA5TiKyr4SZB5BsJB65o rjpc@YF21"
+    ];
   };
 
   security.sudo = {
@@ -98,21 +111,9 @@
   services.getty.autologinUser = "rjpc";
 
   networking = {
-    interfaces."wlan0".useDHCP = true;
-    wireless = {
-      # FIXME:
-      # the env file must already be present on the remote
-      environmentFile = /. + "home/rjpc/secrets/wireless.env";
-      enable = true;
-      userControlled.enable = true;
-      interfaces = [ "wlan0" ];
-      networks = {
-        "@SSID@" = {
-          hidden = true;
-          psk = "@PSK@";
-        };
-      };
-    };
+    # Use NetworkManager for wifi — credentials managed at runtime via nmcli:
+    #   nmcli device wifi connect <SSID> password <PSK>
+    networkmanager.enable = true;
     firewall.allowedTCPPorts = [ 80 443 ];
     # TFTP
     firewall.allowedUDPPortRanges = [
