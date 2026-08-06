@@ -1,4 +1,5 @@
 result
 # Never commit plaintext secrets
+/run/secrets/
 secrets/*.env
 secrets/*.psk

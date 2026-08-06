@@ -52,22 +52,9 @@
     };
   };
 
-  # Age-encrypted WiFi credentials.
-  # To create/re-encrypt: nix run .#agenix -- -e secrets/wireless.env.age
-  # The plaintext file must contain:
-  #   SSID=YourNetworkName
-  #   PSK=YourWifiPassword
-  age.secrets.wireless-env = {
-    file = ./secrets/wireless.env.age;
-    owner = "root";
-    group = "root";
-    mode = "0400";
-  };
-
   services.openssh = {
     enable = true;
     settings = {
-      # Only allow key-based authentication — no passwords, no root login
       PasswordAuthentication = false;
       PermitRootLogin = "no";
       KbdInteractiveAuthentication = false;
@@ -101,27 +88,20 @@
   networking = {
     interfaces."wlan0".useDHCP = true;
     wireless = {
-      # The encrypted env file is decrypted at activation time by agenix.
-      # To update credentials: nix run .#agenix -- -e secrets/wireless.env.age
-      # The plaintext must contain:
-      #   SSID=YourNetworkName
-      #   PSK=YourWifiPassword
-      environmentFile = config.age.secrets.wireless-env.path;
+      # Seed this file on first boot:
+      #   echo -e "SSID=YourNetwork\nPSK=YourPassword" | \
+      #     ssh rjpc@<pi-ip> 'sudo install -m 0400 -o root /dev/stdin /run/secrets/wireless.env'
+      # Then: nixos-rebuild switch --target-host rjpc@<pi-ip> --use-remote-sudo --flake .#<host>
+      environmentFile = "/run/secrets/wireless.env";
       enable = true;
       userControlled.enable = true;
       interfaces = [ "wlan0" ];
-      # Use extraConfig so that @SSID@ and @PSK@ are written verbatim into
-      # wpa_supplicant.conf and substituted at activation time from environmentFile.
-      # Using an attrset key for the network name causes the literal string
-      # "@SSID@" to appear in the ssid= field (rendered as "ext:SSID" by
-      # wpa_supplicant) because Nix evaluates attrset keys at build time.
-      extraConfig = ''
-        network={
-          ssid="@SSID@"
-          psk="@PSK@"
-          scan_ssid=1
-        }
-      '';
+      networks = {
+        "@SSID@" = {
+          hidden = true;
+          psk = "@PSK@";
+        };
+      };
     };
     firewall.allowedTCPPorts = [ 80 443 ];
     # TFTP
