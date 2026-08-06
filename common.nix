@@ -103,16 +103,25 @@
     wireless = {
       # The encrypted env file is decrypted at activation time by agenix.
       # To update credentials: nix run .#agenix -- -e secrets/wireless.env.age
+      # The plaintext must contain:
+      #   SSID=YourNetworkName
+      #   PSK=YourWifiPassword
       environmentFile = config.age.secrets.wireless-env.path;
       enable = true;
       userControlled.enable = true;
       interfaces = [ "wlan0" ];
-      networks = {
-        "@SSID@" = {
-          hidden = true;
-          psk = "@PSK@";
-        };
-      };
+      # Use extraConfig so that @SSID@ and @PSK@ are written verbatim into
+      # wpa_supplicant.conf and substituted at activation time from environmentFile.
+      # Using an attrset key for the network name causes the literal string
+      # "@SSID@" to appear in the ssid= field (rendered as "ext:SSID" by
+      # wpa_supplicant) because Nix evaluates attrset keys at build time.
+      extraConfig = ''
+        network={
+          ssid="@SSID@"
+          psk="@PSK@"
+          scan_ssid=1
+        }
+      '';
     };
     firewall.allowedTCPPorts = [ 80 443 ];
     # TFTP
