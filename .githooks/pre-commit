@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mapfile -t STAGED_NIX_FILES < <(git diff --cached --name-only --diff-filter=ACMR -- '*.nix')
+
+if [ "${#STAGED_NIX_FILES[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+python3 - "${STAGED_NIX_FILES[@]}" <<'PY'
+import pathlib
+import re
+import subprocess
+import sys
+
+files = [pathlib.Path(p) for p in sys.argv[1:]]
+
+
+def scrub_network_keys(content: str) -> str:
+    lines = content.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        match = re.match(r'^(\s*)"([^"]+)"\s*=\s*\{\s*$', lines[i].rstrip("\n"))
+        if not match:
+            i += 1
+            continue
+
+        depth = lines[i].count("{") - lines[i].count("}")
+        j = i + 1
+        while j < len(lines) and depth > 0:
+            depth += lines[j].count("{") - lines[j].count("}")
+            j += 1
+
+        block = "".join(lines[i:j])
+        if re.search(r'^\s*(psk|ssid)\s*=', block, re.MULTILINE):
+            indent = match.group(1)
+            lines[i] = f'{indent}"REDACTED_SSID" = {{\n'
+        i = j
+    return "".join(lines)
+
+
+sanitized = []
+for path in files:
+    if not path.exists():
+        continue
+
+    original = path.read_text(encoding="utf-8")
+    updated = re.sub(
+        r'^(\s*psk\s*=\s*)"(?:[^"\\]|\\.)*"(\s*;)',
+        r'\1"REDACTED_PSK"\2',
+        original,
+        flags=re.MULTILINE,
+    )
+    updated = re.sub(
+        r'^(\s*ssid\s*=\s*)"(?:[^"\\]|\\.)*"(\s*;)',
+        r'\1"REDACTED_SSID"\2',
+        updated,
+        flags=re.MULTILINE,
+    )
+    updated = scrub_network_keys(updated)
+
+    if updated != original:
+        path.write_text(updated, encoding="utf-8")
+        subprocess.run(["git", "add", str(path)], check=True)
+        sanitized.append(str(path))
+
+if sanitized:
+    print("Sanitized wireless SSID/PSK values in staged files:")
+    for file_path in sanitized:
+        print(f"  - {file_path}")
+PY

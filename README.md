@@ -5,6 +5,18 @@ Many, many thanks, plmercereau!
 
 <hr>
 
+## Repository setup
+
+Enable the tracked git hooks once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook automatically scrubs staged `.nix` wireless SSID/PSK values to avoid committing secrets.
+
+<hr>
+
 1. Update `<pi>.nix`
 
 In particular, don't forget:
