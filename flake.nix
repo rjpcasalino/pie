@@ -57,7 +57,9 @@
           ];
         };
         zeroCool2w = nixpkgs.lib.nixosSystem {
-          modules = piModules ++ [ ./zeroCool2w.nix ];
+          modules = piModules ++ [
+            ./zeroCool2w.nix
+          ];
         };
         pi3Bplus = nixpkgs.lib.nixosSystem {
           modules = piModules ++ [
@@ -83,9 +85,9 @@
           # Allow per-host nixpkgs (e.g. aarch64 for Pis)
           nodeNixpkgs = {
             zeroCool2w = import nixpkgs { system = "aarch64-linux"; };
-            zero2w     = import nixpkgs { system = "aarch64-linux"; };
-            pi3Bplus   = import nixpkgs { system = "aarch64-linux"; };
-            pi4B       = import nixpkgs { system = "aarch64-linux"; };
+            zero2w = import nixpkgs { system = "aarch64-linux"; };
+            pi3Bplus = import nixpkgs { system = "aarch64-linux"; };
+            pi4B = import nixpkgs { system = "aarch64-linux"; };
           };
         };
 
@@ -142,7 +144,7 @@
 
         pi4B = {
           deployment = {
-            targetHost = "pi4b";
+            targetHost = "192.168.12.139";
             targetUser = "rjpc";
             buildOnTarget = false;
             tags = [ "pi" ];
