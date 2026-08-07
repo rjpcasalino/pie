@@ -93,7 +93,7 @@
 
         bufflehead = {
           deployment = {
-            targetHost = "bufflehead";
+            targetHost = "192.168.12.93";
             targetUser = "rjpc";
             tags = [ "desktop" ];
           };

@@ -16,8 +16,8 @@
     iwd.enable = false;
     scanOnLowSignal = false;
     networks = {
-      "FIXME" = {
-        psk = "thisGetsSavedToNixStore";
+      "REDACTED_SSID" = {
+        psk = "REDACTED_PSK";
       };
     };
   };
@@ -25,7 +25,7 @@
   networking.useDHCP = false;
   networking.interfaces.eno1.useDHCP = false;
   networking.interfaces.wlp0s20f3.useDHCP = true;
-  networking.nameservers = [ "192.168.0.149" ];
+  networking.nameservers = [ ];
   networking.enableIPv6 = true;
   networking.firewall.allowedTCPPorts = [ ];
   networking.firewall.enable = true;
@@ -58,7 +58,7 @@
     })
   ];
   nixpkgs.config.packageOverrides = pkgs: {
-    vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
+    vaapiIntel = pkgs.intel-vaapi-driver.override { enableHybridCodec = true; };
   };
   nixpkgs.config.allowUnfree = true;
 
@@ -77,7 +77,7 @@
     extraPackages = with pkgs; [
       intel-media-driver # LIBVA_DRIVER_NAME=iHD
       vaapiIntel # LIBVA_DRIVER_NAME=i965 (older but works better for Firefox/Chromium)
-      vaapiVdpau
+      libva-vdpau-driver
       libvdpau-va-gl
     ];
   };
@@ -145,6 +145,7 @@
     wget
     mpv-unwrapped
     nixpkgs-fmt
+    fastfetch
   ];
 
   system.stateVersion = "22.11"; # Did you read the comment? Yes.
