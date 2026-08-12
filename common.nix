@@ -40,8 +40,13 @@
   # Keep this to make sure wifi works
   hardware.enableRedistributableFirmware = lib.mkForce false;
   hardware.firmware = [ pkgs.raspberrypiWirelessFirmware ];
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = false; # aarch64 only
+  };
 
   boot = {
+    kernelModules = [ "vc4" "v3d" ];
     # FIXME:
     # doesn't work...
     # kernelPackages = pkgs.linuxPackages_rpi3;
@@ -51,9 +56,8 @@
       generic-extlinux-compatible.enable = true;
     };
   };
-
   services.xserver = {
-    enable = true;
+    enable = lib.mkDefault true;
     layout = "us";
     autorun = true;
     exportConfiguration = true;
@@ -62,7 +66,7 @@
     displayManager.autoLogin.enable = true;
     displayManager.autoLogin.user = "rjpc";
     displayManager.lightdm = {
-      enable = true;
+      enable = lib.mkDefault true;
       background = pkgs.nixos-artwork.wallpapers.nineish-dark-gray.gnomeFilePath;
       greeters.gtk.indicators = [
         "~host"
@@ -74,7 +78,7 @@
       ];
       greeters.gtk.clock-format = "%A %F %I:%M %p";
     };
-    windowManager.cwm.enable = true;
+    windowManager.cwm.enable = lib.mkDefault true;
   };
 
   services.openssh = {
