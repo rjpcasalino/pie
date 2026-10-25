@@ -76,9 +76,10 @@
       };
 
       # Colmena deployment configuration
-      # Usage from bufflehead:
-      #   nix run .#colmena -- apply --on zeroCool2w
-      #   nix run .#colmena -- apply --on @pi
+      # Usage:
+      #   colmena apply --on zeroCool2w
+      #   colmena apply --on @pi
+      colmenaHive = colmena.lib.makeHive self.outputs.colmena;
       colmena = {
         meta = {
           nixpkgs = import nixpkgs { system = "x86_64-linux"; };

@@ -12,7 +12,7 @@
   networking.hostName = "bufflehead";
   networking.wireless = {
     enable = true;
-    userControlled.enable = true;
+    userControlled = true;
     iwd.enable = false;
     scanOnLowSignal = false;
     networks = {
@@ -29,7 +29,7 @@
   networking.enableIPv6 = true;
   networking.firewall.allowedTCPPorts = [ ];
   networking.firewall.enable = true;
-  services.gpm.enable = true;
+  services.gpm.enable = false;
 
   i18n.defaultLocale = "en_US.UTF-8";
 
@@ -72,7 +72,7 @@
     '';
   };
 
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
       intel-media-driver # LIBVA_DRIVER_NAME=iHD
@@ -102,7 +102,7 @@
 
   services.xserver = {
     enable = true;
-    layout = "us";
+    xkb.layout = "us";
     autorun = false;
     exportConfiguration = true;
     displayManager.startx.enable = true;
@@ -114,8 +114,12 @@
   services.minidlna = {
     enable = true;
     openFirewall = true;
-    settings.media_dir = [ "/mnt/sdb1" "/mnt/sdc1" "/mnt/sdd1" ];
+    settings.media_dir = [ "/mnt/sdc1" "/mnt/sdd1" "/mnt/sdb1" "/mnt/wdblack" ];
     settings.inotify = "yes";
+  };
+  systemd.services.minidlna = {
+    after = [ "mnt-sdb1.mount" "mnt-sdc1.mount" "mnt-sdd1.mount" "mnt-wdblack.mount" ];
+    wants = [ "mnt-sdb1.mount" "mnt-sdc1.mount" "mnt-sdd1.mount" "mnt-wdblack.mount" ];
   };
   ##
   services.openssh.enable = true;
