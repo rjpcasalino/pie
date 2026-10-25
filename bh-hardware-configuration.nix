@@ -23,19 +23,30 @@
   fileSystems."/mnt/sdb1" =
     { device = "/dev/disk/by-uuid/5C67-9F0C";
       fsType = "exfat";
+      options = [ "nofail" ];
     };
-  
+
   fileSystems."/mnt/sdc1" =
     { device = "/dev/disk/by-uuid/7BBF-B8D5";
       fsType = "exfat";
+      options = [ "nofail" ];
     };
-  
+
   fileSystems."/mnt/sdd1" =
     { device = "/dev/disk/by-uuid/e78fd6ed-6186-408a-bf01-47f4f432e0ea";
       fsType = "ext4";
+      options = [ "nofail" ];
     };
 
-  swapDevices = [ ];
+  fileSystems."/mnt/wdblack" =
+    { device = "/dev/disk/by-uuid/58C1-CFF5";
+      fsType = "exfat";
+      options = [ "nofail" ];
+    };
+
+  swapDevices =
+    [ { device = "/dev/disk/by-uuid/a5275c42-6cdb-4ea9-bba6-d241424860d2"; }
+    ];
 
   networking.useDHCP = lib.mkDefault true;
 
