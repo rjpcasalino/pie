@@ -144,15 +144,12 @@
     port = 2283;
     mediaLocation = "/mnt/wdblack/immich";
     openFirewall = true;
-    machine-learning.enable = true;
+    machine-learning.enable = false;
   };
   systemd.services.immich-server = {
     after = [ "mnt-wdblack.mount" ];
     wants = [ "mnt-wdblack.mount" ];
-    serviceConfig.CPUQuota = "150%";
-  };
-  systemd.services.immich-machine-learning = {
-    serviceConfig.CPUQuota = "150%";
+    environment.IMMICH_MACHINE_LEARNING_URL = lib.mkForce "http://yang.home.arpa:3003";
   };
 
   ## CADDY SECURE REVERSE PROXY (:443)
