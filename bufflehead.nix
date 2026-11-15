@@ -138,6 +138,7 @@
   };
 
   ## IMMICH PHOTO MANAGEMENT SERVER
+  services.postgresql.package = pkgs.postgresql_16;
   services.immich = {
     enable = true;
     host = "127.0.0.1";
