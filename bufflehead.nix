@@ -159,12 +159,12 @@
     extraConfig = ''
       kiwix.home.arpa {
         tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
-        reverse_proxy localhost:8085
+        reverse_proxy 127.0.0.1:8085
       }
 
       photos.home.arpa, immich.home.arpa, 192.168.12.122 {
         tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
-        reverse_proxy localhost:2283
+        reverse_proxy 127.0.0.1:2283
       }
     '';
   };
