@@ -48,6 +48,10 @@ list_zims() {
 }
 
 case "$1" in
+    nix|devdocs-nix)
+        # Official DevDocs Nix Documentation (~10 MB)
+        download_and_add "https://lb.download.kiwix.org/zim/devdocs/devdocs_en_nix_2026-10.zim"
+        ;;
     wikimed|medicine)
         # Complete English WikiMed with illustrations (~1.86 GB)
         download_and_add "https://lb.download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-10.zim"
