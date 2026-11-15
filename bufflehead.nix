@@ -149,6 +149,10 @@
   systemd.services.immich-server = {
     after = [ "mnt-wdblack.mount" ];
     wants = [ "mnt-wdblack.mount" ];
+    serviceConfig.CPUQuota = "150%";
+  };
+  systemd.services.immich-machine-learning = {
+    serviceConfig.CPUQuota = "150%";
   };
 
   ## CADDY SECURE REVERSE PROXY (:443)
