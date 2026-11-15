@@ -32,7 +32,7 @@ def scrub_network_keys(content: str) -> str:
             j += 1
 
         block = "".join(lines[i:j])
-        if re.search(r'^\s*(psk|ssid)\s*=', block, re.MULTILINE):
+        if re.search(r'^\s*(psk|ssid)\s*=\s*"(?!ext:)', block, re.MULTILINE):
             indent = match.group(1)
             lines[i] = f'{indent}"REDACTED_SSID" = {{\n'
         i = j
@@ -46,13 +46,13 @@ for path in files:
 
     original = path.read_text(encoding="utf-8")
     updated = re.sub(
-        r'^(\s*psk\s*=\s*)"(?:[^"\\]|\\.)*"(\s*;)',
+        r'^(\s*psk\s*=\s*)"(?!ext:)(?:[^"\\]|\\.)*"(\s*;)',
         r'\1"REDACTED_PSK"\2',
         original,
         flags=re.MULTILINE,
     )
     updated = re.sub(
-        r'^(\s*ssid\s*=\s*)"(?:[^"\\]|\\.)*"(\s*;)',
+        r'^(\s*ssid\s*=\s*)"(?!ext:)(?:[^"\\]|\\.)*"(\s*;)',
         r'\1"REDACTED_SSID"\2',
         updated,
         flags=re.MULTILINE,

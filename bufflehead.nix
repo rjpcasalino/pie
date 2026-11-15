@@ -28,8 +28,9 @@
   networking.interfaces.wlp0s20f3.useDHCP = true;
   networking.nameservers = [ "192.168.12.80" ];
   networking.enableIPv6 = true;
-  networking.firewall.allowedTCPPorts = [ ];
+  networking.firewall.allowedTCPPorts = [ 80 443 2283 8085 ];
   networking.firewall.enable = true;
+  security.pki.certificateFiles = [ ./certs/rock-ca.crt ];
   services.gpm.enable = false;
 
   i18n.defaultLocale = "en_US.UTF-8";
@@ -134,6 +135,36 @@
   systemd.services.kiwix-serve = {
     after = [ "mnt-wdblack.mount" ];
     wants = [ "mnt-wdblack.mount" ];
+  };
+
+  ## IMMICH PHOTO MANAGEMENT SERVER
+  services.immich = {
+    enable = true;
+    host = "127.0.0.1";
+    port = 2283;
+    mediaLocation = "/mnt/wdblack/immich";
+    openFirewall = true;
+    machine-learning.enable = true;
+  };
+  systemd.services.immich-server = {
+    after = [ "mnt-wdblack.mount" ];
+    wants = [ "mnt-wdblack.mount" ];
+  };
+
+  ## CADDY SECURE REVERSE PROXY (:443)
+  services.caddy = {
+    enable = true;
+    extraConfig = ''
+      kiwix.home.arpa {
+        tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
+        reverse_proxy localhost:8085
+      }
+
+      photos.home.arpa, immich.home.arpa {
+        tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
+        reverse_proxy localhost:2283
+      }
+    '';
   };
   ##
   services.openssh = {

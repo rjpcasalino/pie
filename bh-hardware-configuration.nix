@@ -41,7 +41,7 @@
   fileSystems."/mnt/wdblack" =
     { device = "/dev/disk/by-uuid/58C1-CFF5";
       fsType = "exfat";
-      options = [ "nofail" ];
+      options = [ "nofail" "umask=0000" ];
     };
 
   swapDevices =
