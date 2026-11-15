@@ -14,18 +14,19 @@
     enable = true;
     userControlled = true;
     iwd.enable = false;
-    scanOnLowSignal = false;
+    scanOnLowSignal = true;
+    secretsFile = "/etc/wpa_supplicant/wireless.env";
     networks = {
-      "REDACTED_SSID" = {
-        psk = "REDACTED_PSK";
+      "12AngryPeople" = {
+        pskRaw = "ext:PSK";
       };
     };
   };
 
   networking.useDHCP = false;
-  networking.interfaces.eno1.useDHCP = false;
+  networking.interfaces.eno1.useDHCP = true;
   networking.interfaces.wlp0s20f3.useDHCP = true;
-  networking.nameservers = [ ];
+  networking.nameservers = [ "192.168.12.80" ];
   networking.enableIPv6 = true;
   networking.firewall.allowedTCPPorts = [ ];
   networking.firewall.enable = true;
@@ -121,8 +122,28 @@
     after = [ "mnt-sdb1.mount" "mnt-sdc1.mount" "mnt-sdd1.mount" "mnt-wdblack.mount" ];
     wants = [ "mnt-sdb1.mount" "mnt-sdc1.mount" "mnt-sdd1.mount" "mnt-wdblack.mount" ];
   };
+
+  ## KIWIX OFFLINE KNOWLEDGE SERVER
+  services.kiwix-serve = {
+    enable = true;
+    port = 8085;
+    openFirewall = true;
+    libraryPath = "/mnt/wdblack/kiwix/library.xml";
+    extraArgs = [ "-M" ];
+  };
+  systemd.services.kiwix-serve = {
+    after = [ "mnt-wdblack.mount" ];
+    wants = [ "mnt-wdblack.mount" ];
+  };
   ##
-  services.openssh.enable = true;
+  services.openssh = {
+    enable = true;
+    settings = {
+      PasswordAuthentication = false;
+      PermitRootLogin = "no";
+      KbdInteractiveAuthentication = false;
+    };
+  };
 
   users.users.rjpc = {
     isNormalUser = true;
@@ -150,6 +171,7 @@
     mpv-unwrapped
     nixpkgs-fmt
     fastfetch
+    kiwix-tools
   ];
 
   system.stateVersion = "22.11"; # Did you read the comment? Yes.
