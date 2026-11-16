@@ -137,6 +137,28 @@
     wants = [ "mnt-wdblack.mount" ];
   };
 
+  ## KIWIX AUTOMATIC UPDATE SERVICE & TIMER
+  systemd.services.kiwix-update = {
+    description = "Synchronize Kiwix ZIM Knowledge Bases with Upstream";
+    after = [ "network-online.target" "mnt-wdblack.mount" ];
+    wants = [ "network-online.target" "mnt-wdblack.mount" ];
+    path = with pkgs; [ bash curl kiwix-tools gnugrep coreutils systemd gawk ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "/opt/kiwix/kiwix-update.sh";
+      User = "root";
+    };
+  };
+
+  systemd.timers.kiwix-update = {
+    description = "Weekly Kiwix Knowledge Base Synchronization Timer";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Sun *-*-* 03:00:00";
+      Persistent = true;
+    };
+  };
+
   ## IMMICH PHOTO MANAGEMENT SERVER
   services.postgresql.package = pkgs.postgresql_16;
   services.immich = {

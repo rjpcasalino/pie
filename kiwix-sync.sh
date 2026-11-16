@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# kiwix-sync.sh - Automated Kiwix knowledge base manager for bufflehead
-# Generated with assistance from qwen2.5-coder:14b on YANG
-
+# kiwix-sync.sh - Interactive & scripted Kiwix knowledge base manager for bufflehead
 set -eo pipefail
 
 DEST_DIR="/mnt/wdblack/kiwix"
 LIBRARY_FILE="$DEST_DIR/library.xml"
+UPDATE_SCRIPT="/opt/kiwix/kiwix-update.sh"
 
 # Ensure destination directory exists
 mkdir -p "$DEST_DIR"
@@ -48,25 +47,32 @@ list_zims() {
 }
 
 case "$1" in
+    devdocs|devdocs-all)
+        "$UPDATE_SCRIPT" devdocs
+        ;;
+    se|stackexchange)
+        "$UPDATE_SCRIPT" se
+        ;;
+    books)
+        "$UPDATE_SCRIPT" books
+        ;;
+    wiki-simple)
+        "$UPDATE_SCRIPT" wiki-simple
+        ;;
+    quick)
+        "$UPDATE_SCRIPT" quick
+        ;;
+    stackoverflow)
+        "$UPDATE_SCRIPT" stackoverflow
+        ;;
+    wikipedia)
+        "$UPDATE_SCRIPT" wikipedia
+        ;;
     nix|devdocs-nix)
-        # Official DevDocs Nix Documentation (~10 MB)
         download_and_add "https://lb.download.kiwix.org/zim/devdocs/devdocs_en_nix_2026-10.zim"
         ;;
     wikimed|medicine)
-        # Complete English WikiMed with illustrations (~1.86 GB)
         download_and_add "https://lb.download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_maxi_2026-10.zim"
-        ;;
-    wikimed-mini|medicine-mini)
-        # Lightweight WikiMed (~174 MB)
-        download_and_add "https://lb.download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_mini_2026-10.zim"
-        ;;
-    wikipedia-simple)
-        # Simple English Wikipedia Maxi (~1.7 GB)
-        download_and_add "https://lb.download.kiwix.org/zim/wikipedia/wikipedia_en-simple_all_maxi_2026-09.zim"
-        ;;
-    wikipedia-top)
-        # Wikipedia English Top 100 articles (~30 MB)
-        download_and_add "https://lb.download.kiwix.org/zim/wikipedia/wikipedia_en_100_2026-08.zim"
         ;;
     custom)
         if [ -z "$2" ]; then
@@ -79,7 +85,7 @@ case "$1" in
         list_zims
         ;;
     *)
-        echo "Usage: $0 {wikimed|wikimed-mini|wikipedia-simple|wikipedia-top|custom <URL>|list}"
+        echo "Usage: $0 {quick|devdocs|se|books|wiki-simple|stackoverflow|wikipedia|custom <URL>|list}"
         exit 1
         ;;
 esac
