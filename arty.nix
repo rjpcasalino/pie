@@ -91,7 +91,23 @@
   networking.nameservers = [ "192.168.12.80" "1.1.1.3" ];
 
   # 6. Power & Battery Optimization
-  powerManagement.enable = true;
+  powerManagement = {
+    enable = true;
+    powerDownCommands = ''
+      # Notify ThinkPad X13s EC to start breathing LED pattern on sleep
+      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
+      if [ -n "$BUS" ]; then
+        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0xAA || true
+      fi
+    '';
+    resumeCommands = ''
+      # Notify ThinkPad X13s EC to restore normal solid LED on wake
+      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
+      if [ -n "$BUS" ]; then
+        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0x55 || true
+      fi
+    '';
+  };
   services.power-profiles-daemon.enable = true;
 
   # Blacklist unprovisioned Foxconn 5G WWAN modem drivers to prevent power surges/drain
