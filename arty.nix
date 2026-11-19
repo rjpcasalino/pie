@@ -94,17 +94,17 @@
   powerManagement = {
     enable = true;
     powerDownCommands = ''
-      # Notify ThinkPad X13s EC to start breathing LED pattern on sleep
-      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
-      if [ -n "$BUS" ]; then
-        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0xAA || true
-      fi
-    '';
-    resumeCommands = ''
-      # Notify ThinkPad X13s EC to restore normal solid LED on wake
+      # Modern Standby Lowest Power State Entry: notify EC to pulse/breathe LED
       BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
       if [ -n "$BUS" ]; then
         ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0x55 || true
+      fi
+    '';
+    resumeCommands = ''
+      # Modern Standby Lowest Power State Exit: notify EC to restore normal solid LED
+      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
+      if [ -n "$BUS" ]; then
+        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0xAA || true
       fi
     '';
   };
