@@ -182,7 +182,7 @@
       ROCKET_ADDRESS = "127.0.0.1";
       ROCKET_PORT = 8222;
       DOMAIN = "https://vault.home.arpa";
-      SIGNUPS_ALLOWED = true;
+      SIGNUPS_ALLOWED = false;
       INVITATIONS_ALLOWED = true;
       SHOW_PASSWORD_HINT = false;
     };
