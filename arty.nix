@@ -8,20 +8,20 @@
   # 1. Systemd Boot & Qualcomm ThinkPad X13s Bootloader
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Use 6.18 LTS kernel — 7.3.4 has a QMP combo PHY / s2idle regression on SC8280XP
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
 
   boot.loader.systemd-boot.extraFiles = {
     "dtbs/x13s-${config.boot.kernelPackages.kernel.version}.dtb" =
       "${config.boot.kernelPackages.kernel}/dtbs/qcom/sc8280xp-lenovo-thinkpad-x13s.dtb";
   };
 
-  # 2. Kernel Parameters & Sleep/Power Fixes (Johan Hovold & Qualcomm Deep Sleep)
+  # 2. Kernel Parameters & Sleep/Power Fixes (Johan Hovold & nixos-hardware)
   boot.kernelParams = [
     "dtb=dtbs/x13s-${config.boot.kernelPackages.kernel.version}.dtb"
     "clk_ignore_unused"
     "pd_ignore_unused"
     "arm64.nopauth"
-    "mem_sleep_default=s2idle"
   ];
 
   # 3. Early Boot (initrd) Modules: NVMe, PCIe, Display, and Input
@@ -93,12 +93,8 @@
   # 6. Power & Battery Optimization
   powerManagement.enable = true;
   services.power-profiles-daemon.enable = true;
-  services.logind = {
-    lidSwitch = "ignore";
-    lidSwitchExternalPower = "ignore";
-  };
 
-  # Blacklist unprovisioned Foxconn 5G WWAN modem drivers to prevent power surges/hangs
+  # Blacklist unprovisioned Foxconn 5G WWAN modem drivers to prevent power surges/drain
   boot.blacklistedKernelModules = [
     "mhi_pci_generic"
     "mhi_wwan_mbim"
