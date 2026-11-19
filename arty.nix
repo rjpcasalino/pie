@@ -91,26 +91,7 @@
   networking.nameservers = [ "192.168.12.80" "1.1.1.3" ];
 
   # 6. Power & Battery Optimization
-  powerManagement = {
-    enable = true;
-    powerDownCommands = ''
-      # Notify ThinkPad X13s EC of low-power / sleep transition
-      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
-      if [ -n "$BUS" ]; then
-        ${pkgs.libgpiod}/bin/gpioset -c gpiochip4 -p 100ms 176=1 &
-        sleep 0.02
-        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0xAA || true
-      fi
-    '';
-    resumeCommands = ''
-      # Notify ThinkPad X13s EC of wake transition
-      BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
-      if [ -n "$BUS" ]; then
-        ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0x55 || true
-        ${pkgs.libgpiod}/bin/gpioset -c gpiochip4 -p 50ms 176=0 &
-      fi
-    '';
-  };
+  powerManagement.enable = true;
   services.power-profiles-daemon.enable = true;
 
   # Blacklist unprovisioned Foxconn 5G WWAN modem drivers to prevent power surges/drain
