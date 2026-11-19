@@ -43,6 +43,12 @@
       packages.x86_64-linux.colmena = colmena.packages.x86_64-linux.colmena;
 
       nixosConfigurations = {
+        arty = nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = [
+            ./arty.nix
+          ];
+        };
         bufflehead = nixpkgs.lib.nixosSystem {
           modules = [
             ./bufflehead.nix
@@ -85,11 +91,23 @@
           nixpkgs = import nixpkgs { system = "x86_64-linux"; };
           # Allow per-host nixpkgs (e.g. aarch64 for Pis)
           nodeNixpkgs = {
+            arty = import nixpkgs { system = "aarch64-linux"; };
             zeroCool2w = import nixpkgs { system = "aarch64-linux"; };
             zero2w = import nixpkgs { system = "aarch64-linux"; };
             pi3Bplus = import nixpkgs { system = "aarch64-linux"; };
             pi4B = import nixpkgs { system = "aarch64-linux"; };
           };
+        };
+
+        arty = {
+          deployment = {
+            targetHost = "192.168.12.131";
+            targetUser = "rjpc";
+            tags = [ "laptop" "arm" ];
+          };
+          imports = [
+            ./arty.nix
+          ];
         };
 
         bufflehead = {
