@@ -175,6 +175,69 @@
     environment.IMMICH_MACHINE_LEARNING_URL = lib.mkForce "http://yang.home.arpa:3003";
   };
 
+  ## VAULTWARDEN PASSWORD MANAGER
+  services.vaultwarden = {
+    enable = true;
+    config = {
+      ROCKET_ADDRESS = "127.0.0.1";
+      ROCKET_PORT = 8222;
+      DOMAIN = "https://vault.home.arpa";
+      SIGNUPS_ALLOWED = true;
+      INVITATIONS_ALLOWED = true;
+      SHOW_PASSWORD_HINT = false;
+    };
+  };
+
+  ## VAULTWARDEN NIGHTLY BACKUP SERVICE & TIMER
+  systemd.services.vaultwarden-backup = {
+    description = "Backup Vaultwarden SQLite Database and Data to Rock Vault";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    path = with pkgs; [ bash coreutils gnutar gzip iputils openssh sqlite.bin ];
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+      ExecStart = pkgs.writeShellScript "vaultwarden-backup.sh" ''
+        set -euo pipefail
+        DATA_DIR="/var/lib/bitwarden_rs"
+        if [ -d "/var/lib/vaultwarden" ]; then
+          DATA_DIR="/var/lib/vaultwarden"
+        fi
+        BACKUP_DIR="/var/backup/vaultwarden"
+        mkdir -p "$BACKUP_DIR"
+        chmod 700 "$BACKUP_DIR"
+
+        # 1. Atomic SQLite online backup
+        if [ -f "$DATA_DIR/db.sqlite3" ]; then
+          sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$BACKUP_DIR/db.sqlite3'"
+        fi
+
+        # 2. Archive RSA keys and attachments
+        if [ -d "$DATA_DIR" ]; then
+          tar -czf "$BACKUP_DIR/vaultwarden-data.tar.gz" \
+            -C "$DATA_DIR" \
+            --exclude='*.sqlite3*' \
+            . 2>/dev/null || true
+        fi
+
+        # 3. Synchronize to rock.home.arpa:/vault/vaultwarden/ (encrypted softraid0)
+        if ping -c 1 -W 2 192.168.12.80 >/dev/null 2>&1; then
+          ssh -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no root@192.168.12.80 "mkdir -p /vault/vaultwarden && chmod 700 /vault/vaultwarden"
+          scp -i /root/.ssh/id_ed25519 -o StrictHostKeyChecking=no "$BACKUP_DIR"/* root@192.168.12.80:/vault/vaultwarden/
+        fi
+      '';
+    };
+  };
+
+  systemd.timers.vaultwarden-backup = {
+    description = "Nightly Vaultwarden Backup Timer";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 04:00:00";
+      Persistent = true;
+    };
+  };
+
   ## CADDY SECURE REVERSE PROXY (:443)
   services.caddy = {
     enable = true;
@@ -187,6 +250,11 @@
       photos.home.arpa, immich.home.arpa, 192.168.12.122 {
         tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
         reverse_proxy 127.0.0.1:2283
+      }
+
+      vault.home.arpa {
+        tls /etc/ssl/ca/wildcard.fullchain.crt /etc/ssl/ca/wildcard.key
+        reverse_proxy 127.0.0.1:8222
       }
     '';
   };
