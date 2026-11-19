@@ -93,6 +93,18 @@
   # 6. Power & Battery Optimization
   powerManagement.enable = true;
   services.power-profiles-daemon.enable = true;
+  services.logind = {
+    lidSwitch = "ignore";
+    lidSwitchExternalPower = "ignore";
+  };
+
+  # Blacklist unprovisioned Foxconn 5G WWAN modem drivers to prevent power surges/hangs
+  boot.blacklistedKernelModules = [
+    "mhi_pci_generic"
+    "mhi_wwan_mbim"
+    "mhi_wwan_ctrl"
+  ];
+  systemd.services.ModemManager.enable = false;
 
   # 7. Biometrics & Fingerprint Reader (Synaptics Prometheus 06cb:00fc)
   services.fprintd.enable = true;
