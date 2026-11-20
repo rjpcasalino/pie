@@ -1,9 +1,198 @@
 { config, lib, pkgs, ... }:
 
+let
+  # Habamax palette shared by the console, Sway status bar, and borders
+  colors = {
+    bg = "1c1c1c";
+    red = "af5f5f";
+    green = "5faf5f";
+    yellow = "af875f";
+    blue = "5f87af";
+    magenta = "af87af";
+    cyan = "5f8787";
+    fg = "9e9e9e";
+    brightBg = "767676";
+  };
+
+  statusRuntimeDeps = with pkgs; [
+    gawk
+    curl
+    iproute2
+    wireplumber
+    procps
+  ];
+
+  statusScript = pkgs.writeShellScriptBin "wm-status" (''
+    export PATH="${lib.makeBinPath (statusRuntimeDeps ++ (with pkgs; [ coreutils findutils gnugrep gnused systemd ]))}:$PATH"
+    export WM_C_BG="#${colors.bg}"
+    export WM_C_FG="#${colors.fg}"
+    export WM_C_DIM="#${colors.brightBg}"
+    export WM_C_BLUE="#${colors.blue}"
+    export WM_C_CYAN="#${colors.cyan}"
+    export WM_C_GREEN="#${colors.green}"
+    export WM_C_YELLOW="#${colors.yellow}"
+    export WM_C_RED="#${colors.red}"
+    export WM_C_MAGENTA="#${colors.magenta}"
+  '' + builtins.readFile ./status-line.sh);
+
+  panelScript = pkgs.writeShellScriptBin "wm-panel" (''
+    export PATH="${pkgs.hyprlauncher}/bin:${pkgs.dust}/bin:${pkgs.util-linux}/bin:${lib.makeBinPath (statusRuntimeDeps ++ (with pkgs; [ coreutils findutils gnugrep gnused systemd ]))}:$PATH"
+    export WM_C_BG="#${colors.bg}"
+    export WM_C_FG="#${colors.fg}"
+    export WM_C_DIM="#${colors.brightBg}"
+    export WM_C_BLUE="#${colors.blue}"
+    export WM_C_CYAN="#${colors.cyan}"
+    export WM_C_GREEN="#${colors.green}"
+    export WM_C_YELLOW="#${colors.yellow}"
+    export WM_C_RED="#${colors.red}"
+    export WM_PANEL_LAUNCHER="${pkgs.hyprlauncher}/bin/hyprlauncher"
+  '' + builtins.readFile ./status-panel.sh);
+
+  swayWindowSwitcher = pkgs.writeScriptBin "sway-window-switcher" ''
+    #!${pkgs.python3}/bin/python3
+    import json
+    import subprocess
+    import sys
+
+    def main():
+        try:
+            tree_raw = subprocess.check_output(['swaymsg', '-t', 'get_tree'])
+            tree = json.loads(tree_raw)
+        except Exception:
+            sys.exit(1)
+
+        def find_windows(node, ws_name=""):
+            windows = []
+            if node.get("type") == "workspace":
+                ws_name = node.get("name", "")
+            if node.get("name") and (node.get("app_id") or node.get("window_properties")):
+                title = node.get("name", "Untitled")
+                app = node.get("app_id") or node.get("window_properties", {}).get("class", "Unknown")
+                con_id = node.get("id")
+                windows.append(f"[{ws_name}] {app}: {title} | id={con_id}")
+            for child in node.get("nodes", []) + node.get("floating_nodes", []):
+                windows.extend(find_windows(child, ws_name))
+            return windows
+
+        windows = find_windows(tree)
+        if not windows:
+            sys.exit(0)
+
+        input_str = "\n".join(windows)
+        try:
+            proc = subprocess.Popen(["${pkgs.hyprlauncher}/bin/hyprlauncher", "--dmenu"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            selected, _ = proc.communicate(input=input_str)
+            if selected and "id=" in selected:
+                con_id = selected.strip().split("id=")[-1]
+                subprocess.run(["swaymsg", f"[con_id={con_id}] focus"])
+        except Exception:
+            pass
+
+    if __name__ == "__main__":
+        main()
+  '';
+
+  yangStream = pkgs.writeScriptBin "yang-stream" ''
+    #!${pkgs.python3}/bin/python3
+    import sys
+    import json
+    import argparse
+    import urllib.request
+
+    DIM = "\033[2m"
+    CYAN = "\033[36m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
+    def main():
+        parser = argparse.ArgumentParser(description="Stream responses and thinking traces from YANG.")
+        parser.add_argument("prompt", nargs="+", help="The prompt to send to the model")
+        parser.add_argument("-m", "--model", default="deepseek-r1:14b", help="Model name (default: deepseek-r1:14b)")
+        parser.add_argument("-H", "--host", default="http://yang.home.arpa:11434", help="Ollama host")
+        parser.add_argument("-t", "--temperature", type=float, default=0.6, help="Sampling temperature")
+        parser.add_argument("--no-thinking", action="store_true", help="Suppress thinking tokens")
+        args = parser.parse_args()
+
+        full_prompt = " ".join(args.prompt)
+        url = f"{args.host}/api/generate"
+        payload = json.dumps({
+            "model": args.model,
+            "prompt": full_prompt,
+            "stream": True,
+            "options": {"temperature": args.temperature}
+        }).encode("utf-8")
+
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        in_thinking = False
+        in_response = False
+
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                for line in resp:
+                    if not line.strip():
+                        continue
+                    chunk = json.loads(line.decode("utf-8"))
+                    thinking_token = chunk.get("thinking", "")
+                    response_token = chunk.get("response", "")
+
+                    if thinking_token and not args.no_thinking:
+                        if not in_thinking:
+                            sys.stdout.write(f"\n{BOLD}{CYAN}=== [Thinking Process] ==={RESET}\n{DIM}")
+                            sys.stdout.flush()
+                            in_thinking = True
+                        sys.stdout.write(thinking_token)
+                        sys.stdout.flush()
+
+                    if response_token:
+                        if in_thinking and not in_response:
+                            sys.stdout.write(f"{RESET}\n\n{BOLD}=== [Final Response] ==={RESET}\n")
+                            sys.stdout.flush()
+                            in_response = True
+                            in_thinking = False
+                        sys.stdout.write(response_token)
+                        sys.stdout.flush()
+
+            sys.stdout.write(f"{RESET}\n")
+            sys.stdout.flush()
+        except Exception as e:
+            sys.stderr.write(f"\n[ERROR] Connection to {url} failed: {e}\n")
+            sys.exit(1)
+
+    if __name__ == "__main__":
+        main()
+  '';
+
+  yangLogs = pkgs.writeShellScriptBin "yang-logs" ''
+    ssh yang "powershell -Command \"Get-Content -Path D:\ollama\ollama.log -Wait -Tail 30\""
+  '';
+
+  homelabSecrets = pkgs.writeShellScriptBin "homelab-secrets" ''
+    set -euo pipefail
+    SECRETS_FILE="''${HOMELAB_SECRETS_FILE:-/home/rjpc/homelab-docs/secrets.enc.yaml}"
+    if [ $# -lt 1 ]; then
+      echo "Usage: homelab-secrets [view|edit|get <yaml_path>]"
+      exit 1
+    fi
+    case "$1" in
+      view) ${pkgs.sops}/bin/sops -d "$SECRETS_FILE" ;;
+      edit) ${pkgs.sops}/bin/sops "$SECRETS_FILE" ;;
+      get)
+        [ $# -ge 2 ] || { echo "Error: Missing secret path"; exit 1; }
+        ${pkgs.yq-go}/bin/yq eval ".''${2}" <(${pkgs.sops}/bin/sops -d "$SECRETS_FILE")
+        ;;
+      *)
+        echo "Usage: homelab-secrets [view|edit|get <yaml_path>]"
+        exit 1
+        ;;
+    esac
+  '';
+in
 {
   imports = [
     ./arty-hardware-configuration.nix
   ];
+
+  nixpkgs.config.allowUnfree = true;
 
   # 1. Systemd Boot & Qualcomm ThinkPad X13s Bootloader
   boot.loader.systemd-boot.enable = true;
@@ -85,10 +274,34 @@
     };
   };
 
-  # 5. Networking & Host Identity
+  # 5. Networking, PKI & Host Identity
   networking.hostName = "arty";
   networking.networkmanager.enable = true;
   networking.nameservers = [ "192.168.12.80" "1.1.1.3" ];
+  networking.extraHosts = ''
+    192.168.12.80 rock.home.arpa rock
+    192.168.12.58 zits.home.arpa zits
+    192.168.12.69 yang.home.arpa yang
+    192.168.12.122 bufflehead.home.arpa bufflehead photos.home.arpa immich.home.arpa vault.home.arpa kiwix.home.arpa
+  '';
+  networking.firewall.allowedUDPPortRanges = [
+    # Mosh roaming UDP ports
+    { from = 60000; to = 61000; }
+  ];
+
+  # Trust Rock Home Lab Root CA for green padlocks across *.home.arpa
+  security.pki.certificateFiles = [ ./certs/rock-ca.crt ];
+
+  # Timezone & Console Palette (Habamax)
+  time.timeZone = "America/Los_Angeles";
+  console = {
+    colors = [
+      "1c1c1c" "af5f5f" "5faf5f" "af875f"
+      "5f87af" "af87af" "5f8787" "9e9e9e"
+      "767676" "d75f87" "87d787" "d7af87"
+      "5fafd7" "d787d7" "87afaf" "c7c7c7"
+    ];
+  };
 
   # 6. Power & Battery Optimization
   powerManagement = {
@@ -130,17 +343,224 @@
     });
   '';
 
-  # 8. Desktop & Display (GNOME Wayland & Sway with Adreno HW Accel)
+  # 8. Desktop, Fonts & Display (GNOME Wayland & Sway with Adreno HW Accel)
+  fonts = {
+    enableDefaultPackages = true;
+    packages = with pkgs; [
+      noto-fonts
+      noto-fonts-cjk-sans
+      noto-fonts-color-emoji
+      liberation_ttf
+      dejavu_fonts
+      font-awesome
+      roboto
+      jetbrains-mono
+      commit-mono
+    ];
+  };
+
   services.xserver.enable = true;
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
-  programs.sway.enable = true;
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = "rjpc";
 
   systemd.services."getty@tty1".enable = false;
   systemd.services."autovt@tty1".enable = false;
+
+  # Sway Window Manager (matching zits keybindings & Habamax status bar)
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true;
+    extraPackages = with pkgs; [
+      foot
+      swaylock
+      swayidle
+      swaybg
+      wl-clipboard
+      grim
+      slurp
+      mako
+      qt5.qtwayland
+      qt6.qtwayland
+      gammastep
+      brightnessctl
+      pamixer
+      playerctl
+      hyprlauncher
+      nwg-look
+      statusScript
+      panelScript
+      swayWindowSwitcher
+    ] ++ statusRuntimeDeps;
+  };
+
+  environment.etc."sway/config".text = ''
+    ### Variables
+    set $mod Mod4
+    set $left h
+    set $down j
+    set $up k
+    set $right l
+    set $term foot
+    set $menu ${pkgs.hyprlauncher}/bin/hyprlauncher -t
+
+    ### Display & Input (ThinkPad X13s eDP-1 & TrackPoint/Touchpad)
+    output eDP-1 scale 1.25
+    input type:touchpad {
+        tap enabled
+        natural_scroll enabled
+        dwt enabled
+    }
+
+    ### Night Light (Gammastep)
+    exec ${pkgs.gammastep}/bin/gammastep -l 47.60:-122.33 -t 6500:3500
+
+    ### Key bindings (zits parity)
+    bindsym Control+$mod+1 move scratchpad; scratchpad show
+    bindsym $mod+Shift+equal floating disable
+    bindsym $mod+Shift+plus floating disable
+    bindsym $mod+Return exec $term
+    bindsym Control+$mod+Return exec $term -e tmux
+    bindsym Control+$mod+t exec $term -e btop
+    bindsym $mod+Shift+f exec $term -e yazi
+    bindsym $mod+slash exec ${panelScript}/bin/wm-panel --section binds
+    bindsym $mod+Shift+q kill
+    bindsym $mod+d exec $menu
+    bindsym $mod+space exec $menu
+    floating_modifier $mod normal
+    bindsym $mod+Shift+c reload
+    bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit sway?' -B 'Yes, exit sway' 'swaymsg exit'
+
+    # Window & Workspace Tabbing / Cycling
+    bindsym Alt+Tab focus next
+    bindsym Alt+Shift+Tab focus prev
+    bindsym $mod+Tab focus next
+    bindsym $mod+Shift+Tab focus prev
+    bindsym Control+Alt+Tab workspace next
+    bindsym Control+Alt+Shift+Tab workspace prev
+    bindsym Control+$mod+Tab workspace next
+    bindsym Control+$mod+Shift+Tab workspace prev
+
+    # cwm Window Management Shortcuts
+    bindsym $mod+w exec ${swayWindowSwitcher}/bin/sway-window-switcher
+    bindsym Mod1+w exec ${swayWindowSwitcher}/bin/sway-window-switcher
+    bindsym Control+$mod+h move scratchpad
+    bindsym $mod+u scratchpad show
+    bindsym $mod+m fullscreen toggle
+    bindsym $mod+x kill
+
+    # Moving around
+    bindsym $mod+$left focus left
+    bindsym $mod+$down focus down
+    bindsym $mod+$up focus up
+    bindsym $mod+$right focus right
+    bindsym $mod+Left focus left
+    bindsym $mod+Down focus down
+    bindsym $mod+Up focus up
+    bindsym $mod+Right focus right
+
+    bindsym $mod+Shift+$left move left
+    bindsym $mod+Shift+$down move down
+    bindsym $mod+Shift+$up move up
+    bindsym $mod+Shift+$right move right
+    bindsym $mod+Shift+Left move left
+    bindsym $mod+Shift+Down move down
+    bindsym $mod+Shift+Up move up
+    bindsym $mod+Shift+Right move right
+
+    # Workspaces
+    bindsym $mod+1 workspace number 1
+    bindsym $mod+2 workspace number 2
+    bindsym $mod+3 workspace number 3
+    bindsym $mod+4 workspace number 4
+    bindsym $mod+5 workspace number 5
+    bindsym $mod+6 workspace number 6
+    bindsym $mod+7 workspace number 7
+    bindsym $mod+8 workspace number 8
+    bindsym $mod+9 workspace number 9
+    bindsym $mod+0 workspace number 10
+
+    bindsym $mod+Shift+1 move container to workspace number 1
+    bindsym $mod+Shift+2 move container to workspace number 2
+    bindsym $mod+Shift+3 move container to workspace number 3
+    bindsym $mod+Shift+4 move container to workspace number 4
+    bindsym $mod+Shift+5 move container to workspace number 5
+    bindsym $mod+Shift+6 move container to workspace number 6
+    bindsym $mod+Shift+7 move container to workspace number 7
+    bindsym $mod+Shift+8 move container to workspace number 8
+    bindsym $mod+Shift+9 move container to workspace number 9
+    bindsym $mod+Shift+0 move container to workspace number 10
+
+    # Layout
+    bindsym $mod+b splith
+    bindsym $mod+v splitv
+    bindsym $mod+s layout stacking
+    bindsym $mod+t layout tabbed
+    bindsym $mod+e layout toggle split
+    bindsym $mod+f fullscreen
+    bindsym $mod+Shift+space floating toggle
+    bindsym $mod+a focus parent
+
+    # Scratchpad
+    bindsym $mod+Shift+minus move scratchpad
+    bindsym $mod+minus scratchpad show
+
+    # Resize mode
+    mode "resize" {
+        bindsym $left resize shrink width 10px
+        bindsym $down resize grow height 10px
+        bindsym $up resize shrink height 10px
+        bindsym $right resize grow width 10px
+        bindsym Left resize shrink width 10px
+        bindsym Down resize grow height 10px
+        bindsym Up resize shrink height 10px
+        bindsym Right resize grow width 10px
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+    }
+    bindsym $mod+r mode "resize"
+
+    # Audio, Brightness & Screenshots
+    bindsym $mod+Control+v exec ${panelScript}/bin/wm-panel --section vol
+    bindsym --locked XF86AudioMute exec wpctl set-mute \@DEFAULT_AUDIO_SINK@ toggle
+    bindsym --locked XF86AudioLowerVolume exec wpctl set-volume \@DEFAULT_AUDIO_SINK@ 5%-
+    bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume \@DEFAULT_AUDIO_SINK@ 5%+
+    bindsym --locked XF86AudioPlay exec ${pkgs.playerctl}/bin/playerctl play-pause
+    bindsym --locked XF86AudioNext exec ${pkgs.playerctl}/bin/playerctl next
+    bindsym --locked XF86AudioPrev exec ${pkgs.playerctl}/bin/playerctl previous
+    bindsym --locked XF86MonBrightnessDown exec ${pkgs.brightnessctl}/bin/brightnessctl set 5%-
+    bindsym --locked XF86MonBrightnessUp exec ${pkgs.brightnessctl}/bin/brightnessctl set 5%+
+
+    bindsym $mod+Shift+s exec bash -c 'FILE=~/Pictures/Screenshot_$(date +%Y%m%d_%H%M%S).png; grim -g "$(slurp)" "$FILE" && wl-copy < "$FILE"'
+    bindsym Print exec bash -c 'FILE=~/Pictures/Screenshot_$(date +%Y%m%d_%H%M%S).png; grim -g "$(slurp)" "$FILE" && wl-copy < "$FILE"'
+
+    # Idle & Lock
+    exec swayidle -w \
+        timeout 300 'swaylock -f -c 000000' \
+        timeout 600 'swaymsg "output * dpms off"' \
+        resume 'swaymsg "output * dpms on"' \
+        before-sleep 'swaylock -f -c 000000'
+
+    # Status Bar (Habamax with Battery segment)
+    bar {
+        position top
+        status_command ${statusScript}/bin/wm-status --watch
+        pango_markup enabled
+        colors {
+            statusline #ffffff
+            background #1c1c1c
+            inactive_workspace #32323200 #32323200 #5c5c5c
+        }
+    }
+  '';
+
+  environment.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
+    MOZ_ENABLE_WAYLAND = "1";
+    OLLAMA_HOST = "http://yang.home.arpa:11434";
+  };
 
   # 9. Audio & Media
   security.rtkit.enable = true;
@@ -149,6 +569,7 @@
     alsa.enable = true;
     alsa.support32Bit = false;
     pulse.enable = true;
+    wireplumber.enable = true;
   };
 
   # 10. User Account & Access
@@ -178,13 +599,15 @@
     settings.PasswordAuthentication = true;
   };
 
-  # 11. Essential Packages & Utilities
+  # 11. Essential Packages, Apps & Homelab Tools
   environment.systemPackages = with pkgs; [
-    vim
+    # Core & Hardware
     git
     curl
     wget
     htop
+    btop
+    powertop
     pciutils
     usbutils
     ethtool
@@ -196,14 +619,166 @@
     fprintd
     i2c-tools
     libgpiod
+
+    # Terminal, Shell & File Management
     foot
+    tmux
+    mosh
+    sshfs
     direnv
     fd
     ripgrep
+    dust
+    yazi
+    jq
+    yq-go
     fastfetch
+    fortune
+
+    # Writing, Docs & Reading
+    zathura
+    typst
+    w3m
+    newsboat
+
+    # Media & Web (Wayland + Adreno 660 HW Accel)
+    firefox
+    mpv
+    feh
+    brightnessctl
+    pamixer
+    playerctl
+
+    # Nix & Homelab Secrets / AI Offload
+    age
+    sops
+    nixpkgs-fmt
+    nixd
+    ollama
+    yangStream
+    yangLogs
+    homelabSecrets
+    statusScript
+    panelScript
+    swayWindowSwitcher
   ];
 
-  # 12. Foot Terminal & Zsh / Starship (matching zits)
+  # 12. Custom Vim Configuration (from zits editor.nix: Habamax + PaperMode + Plugins)
+  programs.vim = {
+    enable = true;
+    defaultEditor = true;
+    package = (pkgs.vim-full.override { }).customize {
+      name = "vim";
+      vimrcConfig.packages.myplugins = with pkgs.vimPlugins; {
+        start = [
+          ale
+          colorizer
+          copilot-vim
+          csv-vim
+          lightline-vim
+          matchit-zip
+          vim-go
+          vim-nix
+          vim-terraform
+          vim-lsp
+          vim-lastplace
+          vim-signify
+        ];
+        opt = [ ];
+      };
+      vimrcConfig.customRC = ''
+          set nocompatible
+          filetype plugin indent on
+
+          set noswapfile
+          set nobackup
+          set nowritebackup
+
+          set scrolloff=8
+          set signcolumn=yes
+          set updatetime=100
+          set hidden
+
+          set ignorecase
+          set smartcase
+          set incsearch
+          set hlsearch
+          set termguicolors
+
+          set number
+          set relativenumber
+
+          if !has('gui_running')
+              set t_Co=256
+          endif
+
+          colorscheme habamax
+          syntax on
+          set expandtab
+          set tabstop=4
+          set ruler
+          set spelllang=en_us
+          set list
+          set listchars=eol:¬,tab:▸\ ,trail:·
+          set wildmenu
+          set wildmode=longest,list,full
+
+          let g:netrw_preview = 1
+          let g:netrw_banner = 1
+          let g:netrw_liststyle = 3
+          let g:netrw_winsize = 25
+
+          let g:ale_sign_error = '✘'
+          let g:ale_sign_warning = '⚠'
+          highlight ALEErrorSign ctermbg=NONE ctermfg=red
+          highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
+
+          noremap <F11> :tabprevious<CR>
+          noremap <F12> :tabnext<CR>
+
+          augroup vimrc
+              autocmd!
+              au BufRead,BufNewFile *.tex,*.md,*.txt,*.man,*.ms setlocal spell
+              hi clear SpellBad
+              hi SpellBad cterm=underline,bold ctermfg=red
+          augroup END
+
+          augroup PaperMode
+              autocmd!
+              autocmd BufEnter *.txt,*.tex set background=light
+              autocmd BufEnter *.txt,*.tex highlight Normal     ctermbg=231 ctermfg=235 guibg=#FFFFFF guifg=#1c1c1c
+              autocmd BufEnter *.txt,*.tex highlight NonText    ctermbg=231 ctermfg=235 guibg=#FFFFFF guifg=#1c1c1c
+              autocmd BufEnter *.txt,*.tex highlight Cursor     ctermfg=231 ctermbg=196 guifg=#FFFFFF guibg=#FF0000
+              autocmd BufEnter *.txt,*.tex highlight CursorLine cterm=NONE ctermbg=254 guibg=#e4e4e4
+
+              autocmd BufEnter *.txt,*.tex set syntax=off
+              autocmd BufEnter *.txt,*.tex set spell!
+              autocmd BufEnter *.txt,*.tex set cursorline
+              autocmd BufEnter *.txt,*.tex set guicursor=a:block-Cursor
+
+              autocmd BufEnter *.txt,*.tex let &t_EI = "\<Esc>]12;#FF0000\x7"
+              autocmd BufEnter *.txt,*.tex let &t_SI = "\<Esc>]12;#FF0000\x7"
+              autocmd BufEnter *.txt,*.tex let &t_SR = "\<Esc>]12;#FF0000\x7"
+              autocmd BufEnter *.txt,*.tex silent! execute "normal! \<Esc>"
+
+              autocmd BufLeave *.txt,*.tex set background=dark
+              autocmd BufLeave *.txt,*.tex set nocursorline
+              autocmd BufLeave *.txt,*.tex set guicursor=
+              autocmd BufLeave *.txt,*.tex highlight clear CursorLine
+              autocmd BufLeave *.txt,*.tex highlight Normal ctermbg=NONE ctermfg=NONE guibg=NONE guifg=NONE
+              autocmd BufLeave *.txt,*.tex highlight NonText ctermbg=NONE ctermfg=NONE guibg=NONE guifg=NONE
+
+              autocmd BufLeave *.txt,*.tex silent! execute "normal! \<Esc>"
+          augroup END
+
+          autocmd VimLeave * silent !echo -ne "\033]112\007"
+          set laststatus=0
+          runtime macros/matchit.vim
+      '';
+    };
+  };
+
+  # 13. Foot Terminal & Zsh / Starship (matching zits)
   programs.foot = {
     enable = true;
     enableZshIntegration = true;
@@ -281,6 +856,9 @@
       "ls" = "ls --color=auto";
       "nd" = "nix develop";
       "arty" = "sudo nixos-rebuild switch --flake /etc/nixos#arty";
+      "ai" = "yang-stream";
+      "ai-code" = "yang-stream --model qwen2.5-coder:14b";
+      "ai-zits" = "yang-stream --host http://zits.home.arpa:11434 --model muse-glimmer:latest";
     };
 
     interactiveShellInit = ''
