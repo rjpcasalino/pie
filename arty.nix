@@ -498,25 +498,69 @@ in
   nixpkgs.config.allowUnfree = true;
 
   # 1. Systemd Boot & Qualcomm ThinkPad X13s Bootloader
+  #
+  # Hardware baseline comes from nixos-hardware's lenovo-thinkpad-x13s module
+  # (PR #1751, imported in flake.nix). It provides: clk_ignore_unused /
+  # pd_ignore_unused / arm64.nopauth, initrd modules, hardware.deviceTree
+  # (systemd-boot installs the DTB itself, so no dtb= / extraFiles here),
+  # Wi-Fi + Bluetooth MAC handling, camera dma_heap udev rules, and
+  # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   # Use 6.18 LTS kernel — 7.3.4 has a QMP combo PHY / s2idle regression on SC8280XP
   boot.kernelPackages = pkgs.linuxPackages_6_18;
 
-  boot.loader.systemd-boot.extraFiles = {
-    "dtbs/x13s-${config.boot.kernelPackages.kernel.version}.dtb" =
-      ./dtbs/x13s-6.18.63.dtb;
-  };
+  # Enable the I2C-attached Embedded Controller bus (i2c8 @ 0xa80000, EC at 0x28)
+  # used for the sleep-LED "breathe" in powerManagement below. Replaces the
+  # hand-built dtbs/x13s-6.18.63.dtb: applied to every kernel's DTB, so it no
+  # longer freezes the device tree at 6.18.63. Verified identical (modulo
+  # phandle numbering) to the DTB arty booted with before this change.
+  hardware.deviceTree.overlays = [
+    {
+      name = "x13s-ec-i2c8";
+      dtsText = ''
+        /dts-v1/;
+        /plugin/;
 
-  # 2. Kernel Parameters & Sleep/Power Fixes (Johan Hovold & nixos-hardware)
-  boot.kernelParams = [
-    "dtb=dtbs/x13s-${config.boot.kernelPackages.kernel.version}.dtb"
-    "clk_ignore_unused"
-    "pd_ignore_unused"
-    "arm64.nopauth"
+        / {
+          compatible = "lenovo,thinkpad-x13s";
+
+          fragment@0 {
+            target-path = "/soc@0/pinctrl@f100000";
+            __overlay__ {
+              i2c8_default: i2c8-default-state {
+                pins = "gpio43", "gpio44";
+                function = "qup8";
+                drive-strength = <16>;
+                bias-disable;
+              };
+            };
+          };
+
+          fragment@1 {
+            target-path = "/soc@0/geniqup@ac0000/i2c@a80000";
+            __overlay__ {
+              status = "okay";
+              clock-frequency = <400000>;
+              pinctrl-names = "default";
+              pinctrl-0 = <&i2c8_default>;
+            };
+          };
+        };
+      '';
+    }
   ];
 
-  # 3. Early Boot (initrd) Modules: NVMe, PCIe, Display, and Input
+  # 2. Factory MACs (module defaults to machine-id-derived addresses; we keep
+  # the real factory ones so DHCP reservations and BlueZ pairings survive)
+  hardware.lenovo.x13s = {
+    wifiMAC = "8c:fd:f0:98:e1:f6";
+    bluetoothMAC = "8C:FD:F0:98:E1:F7";
+  };
+
+  # 3. Early Boot (initrd) Modules. The module puts these in
+  # availableKernelModules; we additionally force-load them, which is what
+  # arty has booted reliably with on 6.18.
   boot.initrd.kernelModules = [
     # Storage & PCIe
     "nvme"
@@ -537,45 +581,30 @@ in
     "i2c-qcom-geni"
   ];
 
-  # Disable TPM2 waiting (Qualcomm fTPM not exposed to mainline Linux)
+  # Disable TPM2 waiting (Qualcomm fTPM not exposed to mainline Linux).
+  # The module offers hardware.x13s.patches.tpm (out-of-tree QSEECOM dTPM
+  # driver) but that means compiling the kernel on aarch64 — not enabled.
   systemd.tpm2.enable = false;
   boot.initrd.systemd.tpm2.enable = false;
   security.tpm2.enable = false;
   systemd.targets.tpm2.enable = false;
 
-  # Include Qualcomm/Lenovo 21BX proprietary firmware and Adreno GPU firmware
-  hardware.enableRedistributableFirmware = true;
-  hardware.firmware = [
-    (pkgs.runCommand "x13s-firmware" {} ''
-      mkdir -p $out/lib/firmware
-      if [ -d ${./firmware} ]; then
-        cp -rL ${./firmware}/* $out/lib/firmware/
-      elif [ -d /etc/nixos/firmware ]; then
-        cp -rL /etc/nixos/firmware/* $out/lib/firmware/
-      fi
-    '')
-  ];
+  # Firmware: linux-firmware (via enableRedistributableFirmware, set by the
+  # module) already ships every qcom/sc8280xp/LENOVO/21BX blob and a660_* file
+  # we used to vendor in ./firmware, byte-identical — except
+  # audioreach-tplg.bin, where our vendored copy is OLDER (24296 vs 29496
+  # bytes) and was overriding upstream. Dropped the vendored set; if audio
+  # regresses, restore ./firmware for that file only.
+  #
+  # Battery/charging do not depend on firmware compression: kernel 6.18 uses
+  # the in-kernel qcom_pd_mapper (CONFIG_QCOM_PD_MAPPER), not the userspace
+  # pd-mapper that could not read .zst. Default zstd compression is fine.
   boot.initrd.extraFirmwarePaths = [
     "qcom"
   ];
 
-  # 4. Factory Hardware MACs & Camera DMA Rules
-  services.udev.extraRules = ''
-    ACTION=="add", SUBSYSTEM=="net", KERNELS=="0006:01:00.0", RUN+="${pkgs.iproute2}/bin/ip link set dev $name address 8c:fd:f0:98:e1:f6"
-    ACTION=="add", SUBSYSTEM=="dma_heap", KERNEL=="linux,cma", GROUP="video", MODE="0660"
-    ACTION=="add", SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="video", MODE="0660"
-  '';
-
-  systemd.services.bluetooth-x13s-mac = {
-    wantedBy = [ "multi-user.target" ];
-    before = [ "bluetooth.service" ];
-    requiredBy = [ "bluetooth.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.util-linux}/bin/script -q -c '${pkgs.bluez}/bin/btmgmt --index 0 public-addr 8c:fd:f0:98:e1:f7'";
-    };
-  };
+  # 4. (Wi-Fi MAC udev rule, camera dma_heap rules and bluetooth-x13s-mac
+  # service now come from the nixos-hardware module.)
 
   # 5. Networking, PKI & Host Identity
   networking.hostName = "arty";

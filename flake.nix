@@ -13,6 +13,13 @@
       url = "github:zhaofengli/colmena";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # ThinkPad X13s module from NixOS/nixos-hardware PR #1751 (BrainWart),
+    # pinned to the PR head we tested. Switch to plain
+    # "github:NixOS/nixos-hardware" once the PR is merged.
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware/7e29c61a009133ff11ece8e8353cdf374632f439";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -20,6 +27,7 @@
     , determinate
     , nixpkgs
     , colmena
+    , nixos-hardware
     ,
     }:
     let
@@ -46,6 +54,7 @@
         arty = nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
           modules = [
+            nixos-hardware.nixosModules.lenovo-thinkpad-x13s
             ./arty.nix
           ];
         };
@@ -106,6 +115,7 @@
             tags = [ "laptop" "arm" ];
           };
           imports = [
+            nixos-hardware.nixosModules.lenovo-thinkpad-x13s
             ./arty.nix
           ];
         };
