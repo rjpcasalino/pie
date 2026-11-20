@@ -158,7 +158,7 @@ collect() {
   # --- battery ---
   BAT_STR=""
   BAT_DIR=""
-  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*bat*; do
+  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*-bat; do
     [ -d "$d" ] || continue
     BAT_DIR="$d"
     break
@@ -166,10 +166,15 @@ collect() {
   if [ -n "$BAT_DIR" ]; then
     BAT_CAP=$(cat "$BAT_DIR/capacity" 2>/dev/null)
     BAT_STAT=$(cat "$BAT_DIR/status" 2>/dev/null)
+    BAT_PWR=$(cat "$BAT_DIR/power_now" 2>/dev/null || true)
+    BAT_W=""
+    if [ -n "${BAT_PWR:-}" ]; then
+      BAT_W=$(printf '%s' "$BAT_PWR" | awk '{v = $1 < 0 ? -$1 : $1; if (v > 0) printf " %.1fW", v / 1000000}')
+    fi
     if [ "$BAT_STAT" = "Charging" ]; then
-      BAT_STR=$(span "$WM_C_GREEN" " ⚡ ${BAT_CAP}%")
+      BAT_STR=$(span "$WM_C_GREEN" " ⚡ ${BAT_CAP}%${BAT_W}")
     else
-      BAT_STR=$(span "$WM_C_YELLOW" " 🔋 ${BAT_CAP}%")
+      BAT_STR=$(span "$WM_C_YELLOW" " 🔋 ${BAT_CAP}%${BAT_W}")
     fi
   fi
 

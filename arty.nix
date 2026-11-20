@@ -186,6 +186,186 @@ let
         ;;
     esac
   '';
+
+  wallpaperChanger = pkgs.writeScriptBin "wallpaper-changer" (''
+    #!${pkgs.perl}/bin/perl
+  '' + builtins.readFile ./wallpaper-changer.pl);
+
+  pushCursor = pkgs.writeShellScript "push-cursor-from-gtk" ''
+    set -euo pipefail
+    ini="''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini"
+    [ -r "$ini" ] || exit 0
+    theme=$(sed -n 's/^gtk-cursor-theme-name *= *//p' "$ini" | head -1 | tr -d '\r"')
+    [ -n "$theme" ] || exit 0
+    IFS=':' read -ra xdg_dirs <<< "''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    search_dirs=("''${xdg_dirs[@]}" "$HOME/.local/share" "$HOME/.icons")
+    found=0
+    for dir in "''${search_dirs[@]}"; do
+      if [ -d "$dir/icons/$theme/cursors" ]; then
+        found=1
+        break
+      fi
+    done
+    [ "$found" -eq 1 ] || exit 0
+    size=$(sed -n 's/^gtk-cursor-theme-size *= *//p' "$ini" | head -1 | tr -cd 0-9)
+    [ -n "$size" ] || size=24
+    hyprctl setcursor "$theme" "$size" || true
+  '';
+
+  resetCursor = pkgs.writeShellScript "reset-cursor-to-hyprland" ''
+    set -euo pipefail
+    blank=blank-theme
+    for f in "''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-3.0/settings.ini" \
+             "''${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/settings.ini" \
+             "$HOME/.gtkrc-2.0"; do
+      mkdir -p "$(dirname "$f")"
+      if [ -f "$f" ] && grep -q "^gtk-cursor-theme-name" "$f"; then
+        sed -i "s|^gtk-cursor-theme-name.*|gtk-cursor-theme-name=$blank|" "$f"
+      else
+        printf '[Settings]\ngtk-cursor-theme-name=%s\n' "$blank" >> "$f"
+      fi
+    done
+    mkdir -p "$HOME/.icons/$blank/cursors" "$HOME/.local/share/icons/$blank/cursors"
+    hyprctl setcursor "$blank" 24 || true
+  '';
+
+  defaultWaybarConfigJson = ''
+    {
+      "layer": "top",
+      "position": "top",
+      "height": 28,
+      "spacing": 4,
+      "modules-left": ["hyprland/workspaces", "hyprland/window"],
+      "modules-center": [
+        "custom/status-net",
+        "custom/status-disk",
+        "custom/status-cpu",
+        "custom/status-mem",
+        "custom/status-vol"
+      ],
+      "modules-right": ["tray", "clock"],
+
+      "hyprland/workspaces": {
+        "format": "{icon}",
+        "format-icons": {
+          "active": "●",
+          "default": "○"
+        }
+      },
+
+      "hyprland/window": {
+        "max-length": 60
+      },
+
+      "custom/status-net": {
+        "exec": "${statusScript}/bin/wm-status --once --section net",
+        "interval": 2,
+        "restart-interval": 5,
+        "max-length": 400,
+        "on-click": "${panelScript}/bin/wm-panel --section net"
+      },
+
+      "custom/status-disk": {
+        "exec": "${statusScript}/bin/wm-status --once --section disk",
+        "interval": 5,
+        "restart-interval": 10,
+        "max-length": 120,
+        "on-click": "${panelScript}/bin/wm-panel --section disk"
+      },
+
+      "custom/status-cpu": {
+        "exec": "${statusScript}/bin/wm-status --once --section cpu",
+        "interval": 2,
+        "restart-interval": 5,
+        "max-length": 80,
+        "on-click": "${panelScript}/bin/wm-panel --section cpu"
+      },
+
+      "custom/status-mem": {
+        "exec": "${statusScript}/bin/wm-status --once --section mem",
+        "interval": 2,
+        "restart-interval": 5,
+        "max-length": 100,
+        "on-click": "${panelScript}/bin/wm-panel --section mem"
+      },
+
+      "custom/status-vol": {
+        "exec": "${statusScript}/bin/wm-status --once --section vol",
+        "interval": 2,
+        "restart-interval": 5,
+        "max-length": 60,
+        "on-click": "${panelScript}/bin/wm-panel --section vol",
+        "on-click-middle": "${pkgs.wireplumber}/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "on-scroll-up": "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
+        "on-scroll-down": "${pkgs.wireplumber}/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+      },
+
+      "clock": {
+        "interval": 1,
+        "format": "<span>{:%a %d %b %Y  %I:%M:%S %p}</span>",
+        "tooltip-format": "<big>{}</big>",
+        "on-click": "${panelScript}/bin/wm-panel --section time"
+      },
+
+      "tray": {
+        "icon-size": 16,
+        "spacing": 8
+      }
+    }
+  '';
+
+  defaultWaybarStyleCss = ''
+    * {
+      font-family: "Noto Sans", "Noto Color Emoji", "Font Awesome 6 Free";
+      font-size: 13px;
+      border: none;
+      border-radius: 0;
+      min-height: 0;
+    }
+
+    window#waybar {
+      background-color: #${colors.bg};
+      color: #${colors.fg};
+    }
+
+    #workspaces button {
+      padding: 0 5px;
+      color: #${colors.brightBg};
+      min-width: 0;
+    }
+
+    #workspaces button.active {
+      color: #${colors.blue};
+    }
+
+    #window {
+      color: #${colors.fg};
+    }
+
+    #custom-status-net,
+    #custom-status-disk,
+    #custom-status-cpu,
+    #custom-status-mem,
+    #custom-status-vol,
+    #clock {
+      padding: 0 6px;
+      color: #${colors.fg};
+    }
+
+    #custom-status-vol,
+    #clock {
+      border-radius: 4px;
+    }
+
+    #custom-status-vol:hover,
+    #clock:hover {
+      background-color: #${colors.brightBg};
+    }
+
+    #tray {
+      padding: 0 6px;
+    }
+  '';
 in
 {
   imports = [
@@ -559,8 +739,339 @@ in
   environment.sessionVariables = {
     NIXOS_OZONE_WL = "1";
     MOZ_ENABLE_WAYLAND = "1";
+    TERMINAL = "foot";
     OLLAMA_HOST = "http://yang.home.arpa:11434";
   };
+
+  # 8b. Hyprland, Waybar, Hyprlock, Hypridle & Hyprlauncher (matching zits)
+  programs.hyprland = {
+    enable = true;
+    xwayland.enable = true;
+  };
+
+  programs.hyprlock.enable = true;
+  services.hypridle.enable = true;
+
+  systemd.user.targets.hyprland-session = {
+    description = "Services belonging to the Hyprland session";
+  };
+
+  systemd.user.services.waybar = {
+    description = "Waybar status bar for the Hyprland session";
+    wantedBy = [ "hyprland-session.target" ];
+    path = [ pkgs.waybar ] ++ statusRuntimeDeps;
+    unitConfig.ConditionEnvironment = "WAYLAND_DISPLAY";
+    startLimitIntervalSec = 0;
+    serviceConfig = {
+      ExecStart = "${pkgs.waybar}/bin/waybar -c /etc/xdg/waybar/config.jsonc -s /etc/xdg/waybar/style.css";
+      Restart = "on-failure";
+      RestartSec = "1s";
+    };
+  };
+
+  systemd.user.services.hypridle.wantedBy = [ "hyprland-session.target" ];
+
+  systemd.user.services.hyprlauncher = {
+    description = "Hyprlauncher daemon for the Hyprland session";
+    wantedBy = [ "hyprland-session.target" ];
+    unitConfig.ConditionEnvironment = "WAYLAND_DISPLAY";
+    startLimitIntervalSec = 0;
+    environment = {
+      TERMINAL = "foot";
+    };
+    serviceConfig = {
+      Environment = lib.mkForce [
+        "PATH=/run/wrappers/bin:%h/.local/share/flatpak/exports/bin:/var/lib/flatpak/exports/bin:%h/.nix-profile/bin:/nix/profile/bin:%h/.local/state/nix/profile/bin:/etc/profiles/per-user/%u/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin"
+        "LOCALE_ARCHIVE=${config.i18n.glibcLocales}/lib/locale/locale-archive"
+        "TZDIR=/etc/zoneinfo"
+        "TERMINAL=foot"
+      ];
+      ExecStart = "${pkgs.hyprlauncher}/bin/hyprlauncher -d";
+      Restart = "on-failure";
+      RestartSec = "1s";
+    };
+  };
+
+  system.activationScripts.initHyprToolkit = lib.stringAfter [ "etc" ] ''
+    for user_dir in /home/*; do
+      if [ -d "$user_dir" ]; then
+        mkdir -p "$user_dir/.config/hypr"
+        ln -sf "/etc/xdg/hypr/hyprtoolkit.conf" "$user_dir/.config/hypr/hyprtoolkit.conf"
+        ln -sf "/etc/xdg/hypr/hyprlauncher.conf" "$user_dir/.config/hypr/hyprlauncher.conf"
+        chown -h -R "$(stat -c '%u:%g' "$user_dir")" "$user_dir/.config/hypr" || true
+      fi
+    done
+    rm -f /etc/static/xdg/hypr/hyprland.conf /etc/xdg/hypr/hyprland.conf
+  '';
+
+  environment.etc."xdg/hypr/hyprland.lua".text = ''
+    -- Hyprland configuration for ThinkPad X13s (arty)
+    hl.monitor({ output = "eDP-1", mode = "preferred", position = "0x0", scale = 1.25 })
+    hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+
+    local terminal = "foot"
+    local menu     = "hyprlauncher -t"
+    local mainMod  = "SUPER"
+
+    hl.env("HYPRCURSOR_SIZE", "24")
+    hl.env("XCURSOR_SIZE", "24")
+
+    hl.config({
+        general = {
+            gaps_in    = 4,
+            gaps_out   = 8,
+            border_size = 2,
+            col = {
+                active_border   = { colors = { "rgba(${colors.blue}ff)", "rgba(${colors.cyan}ff)" }, angle = 45 },
+                inactive_border = "rgba(${colors.brightBg}aa)",
+            },
+            layout = "dwindle",
+        },
+        decoration = {
+            rounding = 8,
+            blur = { enabled = true, size = 3, passes = 2 },
+        },
+        animations = {
+            enabled = true,
+            animation = {
+                "layers, 0",
+                "fadeLayersIn, 0",
+                "fadeLayersOut, 0",
+                "fadePopups, 0"
+            }
+        },
+        input = {
+            touchpad = {
+                natural_scroll = true,
+                disable_while_typing = true,
+                tap_to_click = true,
+            }
+        },
+        misc = {
+            bell_sound = "none",
+        },
+    })
+
+    -- Terminal, launcher, and keybindings cheat sheet
+    hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal))
+    hl.bind(mainMod .. " + Space",  hl.dsp.exec_cmd(menu))
+    hl.bind(mainMod .. " + D",      hl.dsp.exec_cmd(menu))
+    hl.bind(mainMod .. " + ALT + Space", hl.dsp.exec_cmd("hyprlauncher -f math"))
+    hl.bind(mainMod .. " + slash",  hl.dsp.exec_cmd("${panelScript}/bin/wm-panel --section binds"))
+
+    -- Focus: arrows, plus vim hjkl
+    local focus_dirs = {
+        { "left",  { "left", "H" } },
+        { "right", { "right", "L" } },
+        { "up",    { "up", "K" } },
+        { "down",  { "down", "J" } },
+    }
+    for _, entry in ipairs(focus_dirs) do
+        for _, key in ipairs(entry[2]) do
+            hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ direction = entry[1] }))
+        end
+    end
+
+    -- Swap on SHIFT
+    local swap_dirs = {
+        { "left",  { "left", "H" } },
+        { "right", { "right", "L" } },
+        { "up",    { "K" } },
+        { "down",  { "J" } },
+    }
+    for _, entry in ipairs(swap_dirs) do
+        for _, key in ipairs(entry[2]) do
+            hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.swap({ direction = entry[1] }))
+        end
+    end
+
+    -- Window management
+    hl.bind(mainMod .. " + W", hl.dsp.window.close())
+    hl.bind(mainMod .. " + Q", hl.dsp.window.close())
+    hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.window.close())
+    hl.bind(mainMod .. " + X", hl.dsp.window.close())
+    hl.bind("CTRL + ALT + Delete", hl.dsp.exit())
+    hl.bind(mainMod .. " + T", hl.dsp.window.float({ action = "toggle" }))
+    hl.bind(mainMod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
+    hl.bind(mainMod .. " + O", hl.dsp.window.pin({ action = "toggle" }))
+
+    -- Fullscreen
+    hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
+    hl.bind(mainMod .. " + ALT + F", hl.dsp.window.fullscreen({ mode = "maximized", action = "toggle" }))
+    hl.bind(mainMod .. " + CTRL + F", hl.dsp.window.fullscreen_state({ action = "set", internal = 1, client = 1 }))
+
+    -- Layouts and grouping
+    hl.bind(mainMod .. " + G", hl.dsp.group.toggle())
+    hl.bind(mainMod .. " + ALT + G", hl.dsp.window.move({ out_of_group = true }))
+    hl.bind(mainMod .. " + CTRL + right", hl.dsp.group.next())
+    hl.bind(mainMod .. " + CTRL + left",  hl.dsp.group.prev())
+
+    -- TUI launchers
+    hl.bind(mainMod .. " + CTRL + T",      hl.dsp.exec_cmd(terminal .. " -e btop"))
+    hl.bind(mainMod .. " + CTRL + Return", hl.dsp.exec_cmd(terminal .. " -e tmux"))
+    hl.bind(mainMod .. " + SHIFT + F",     hl.dsp.exec_cmd(terminal .. " -e yazi"))
+    hl.bind(mainMod .. " + CTRL + W",      hl.dsp.exec_cmd(terminal .. " -e nmtui"))
+    hl.bind(mainMod .. " + CTRL + B",      hl.dsp.exec_cmd(terminal .. " -e bluetoothctl"))
+
+    -- Appearance & cursor
+    hl.bind(mainMod .. " + A", hl.dsp.exec_cmd("sh -c 'nwg-look; ${pushCursor}'"))
+    hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("${resetCursor}"))
+
+    -- Workspaces 1..10
+    for i = 1, 10 do
+        local key = i % 10
+        hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
+        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+        hl.bind(mainMod .. " + ALT + " .. key,   hl.dsp.window.move({ workspace = i, follow = false }))
+    end
+
+    -- Mouse: drag and resize
+    hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
+    hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+    -- Media and brightness
+    hl.bind(mainMod .. " + V",         hl.dsp.exec_cmd("${panelScript}/bin/wm-panel --section vol"))
+    hl.bind("XF86AudioRaiseVolume",   hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+    hl.bind("XF86AudioLowerVolume",   hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })
+    hl.bind("XF86AudioMute",          hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
+    hl.bind("XF86AudioPlay",          hl.dsp.exec_cmd("playerctl play-pause"))
+    hl.bind("XF86AudioNext",          hl.dsp.exec_cmd("playerctl next"))
+    hl.bind("XF86AudioPrev",          hl.dsp.exec_cmd("playerctl previous"))
+    hl.bind("XF86MonBrightnessDown",  hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true })
+    hl.bind("XF86MonBrightnessUp",    hl.dsp.exec_cmd("brightnessctl set 5%+"), { locked = true })
+
+    -- Screen lock & screenshots
+    hl.bind(mainMod .. " + ALT + L", hl.dsp.exec_cmd("hyprlock"))
+    local screenshot = "bash -c 'FILE=~/Pictures/Screenshot_$(date +%Y%m%d_%H%M%S).png; grim -g \"$(slurp)\" \"$FILE\" && wl-copy < \"$FILE\"'"
+    hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd(screenshot))
+    hl.bind("Print", hl.dsp.exec_cmd(screenshot))
+
+    hl.window_rule({
+      name = "firefox-no-animations",
+      match = { class = "[Ff]irefox" },
+      no_anim = true,
+      opacity = "1.0 override 1.0 override 1.0 override"
+    })
+
+    hl.on("hyprland.start", function()
+        hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE XDG_CURRENT_DESKTOP")
+        hl.exec_cmd("systemctl --user start hyprland-session.target")
+        hl.exec_cmd("gammastep -l 47.60:-122.33 -t 6500:3500")
+        hl.exec_cmd("systemd-cat -t wallpaper-changer ${wallpaperChanger}/bin/wallpaper-changer")
+        hl.exec_cmd("${pushCursor}")
+    end)
+  '';
+
+  environment.etc."xdg/hypr/hypridle.conf".text = ''
+    general {
+        lock_cmd = pidof hyprlock || hyprlock
+        before_sleep_cmd = loginctl lock-session
+        after_sleep_cmd = hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+    }
+
+    listener {
+        timeout = 300
+        on-timeout = loginctl lock-session
+    }
+
+    listener {
+        timeout = 600
+        on-timeout = hyprctl dispatch 'hl.dsp.dpms({ action = "off" })'
+        on-resume = hyprctl dispatch 'hl.dsp.dpms({ action = "on" })'
+    }
+  '';
+
+  environment.etc."xdg/hypr/hyprlock.conf".text = ''
+    general {
+        hide_cursor = true
+        grace = 2
+        no_fade_in = false
+        ignore_empty_input = true
+    }
+
+    background {
+        monitor =
+        path =
+        color = 0x${colors.bg}ff
+    }
+
+    input-field {
+        monitor =
+        size = 300, 46
+        outline_thickness = 2
+        dots_size = 0.22
+        dots_spacing = 0.3
+        outer_color = 0x${colors.fg}ff
+        inner_color = 0x${colors.bg}ff
+        font_color = 0x${colors.fg}ff
+        fade_on_empty = true
+        placeholder_text = <i>Password</i>
+        hide_input = false
+        check_color = 0x${colors.green}ff
+        fail_color = 0x${colors.red}ff
+        fail_text = <i>$FAIL ($ATTEMPTS)</i>
+        capslock_color = 0x${colors.yellow}ff
+        rounding = 8
+        position = 0, -120
+        halign = center
+        valign = center
+    }
+
+    label {
+        monitor =
+        text = $TIME
+        color = 0x${colors.fg}ff
+        font_size = 76
+        font_family = Noto Sans
+        position = 0, 200
+        halign = center
+        valign = center
+    }
+  '';
+
+  environment.etc."xdg/hypr/hyprtoolkit.conf".text = ''
+    background = 0xFF${colors.bg}
+    base = 0xFF202020
+    alternate_base = 0xFF272727
+    text = 0xFFd0d0d8
+    bright_text = 0xFFffffff
+    accent = 0xFF${colors.blue}
+    accent_secondary = 0xFF${colors.cyan}
+    h1_size = 19
+    h2_size = 15
+    h3_size = 13
+    font_size = 12
+    small_font_size = 10
+    font_family = Noto Sans
+    font_family_monospace = monospace
+    rounding_large = 8
+    rounding_small = 4
+  '';
+
+  environment.etc."xdg/hypr/hyprlauncher.conf".text = ''
+    general {
+        grab_focus = true
+    }
+
+    cache {
+        enabled = true
+    }
+
+    finders {
+        default_finder = desktop
+        math_prefix = =
+        font_prefix = '
+        desktop_terminal = foot
+        desktop_icons = true
+    }
+
+    ui {
+        window_size = 680 460
+    }
+  '';
+
+  environment.etc."xdg/waybar/config.jsonc".text = defaultWaybarConfigJson;
+  environment.etc."xdg/waybar/style.css".text = defaultWaybarStyleCss;
 
   # 9. Audio & Media
   security.rtkit.enable = true;
@@ -645,9 +1156,18 @@ in
     firefox
     mpv
     feh
+    awww
+    waybar
+    hyprlauncher
+    nwg-look
+    apple-cursor
+    bibata-cursors
+    breeze-hacked-cursor-theme
+    catppuccin-cursors
     brightnessctl
     pamixer
     playerctl
+    wallpaperChanger
 
     # Nix & Homelab Secrets / AI Offload
     age

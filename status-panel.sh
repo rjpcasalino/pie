@@ -286,9 +286,13 @@ panel_mem() {
     "$(span "$WM_C_FG" "${swap:-0}G swap")"
 
   local bat
-  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*bat*; do
+  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*-bat; do
     [ -d "$d" ] || continue
-    bat="$(cat "$d/capacity" 2>/dev/null)% $(cat "$d/status" 2>/dev/null)"
+    local pwr_w=""
+    if [ -r "$d/power_now" ]; then
+      pwr_w=$(awk '{v = $1 < 0 ? -$1 : $1; if (v > 0) printf " (%.1fW)", v / 1000000}' "$d/power_now" 2>/dev/null || true)
+    fi
+    bat="$(cat "$d/capacity" 2>/dev/null)% $(cat "$d/status" 2>/dev/null)${pwr_w}"
     break
   done
   [ -n "${bat:-}" ] && printf '  %s %s\n' \
