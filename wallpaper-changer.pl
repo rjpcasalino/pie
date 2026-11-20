@@ -30,7 +30,7 @@ while (1) {
     }
 
     for my $file (@files) {
-        next unless -f $file;
+        next unless -e $file;
         print "Setting: $file\n";
 
         my $rc = system {
