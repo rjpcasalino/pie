@@ -898,9 +898,11 @@ in
     host = "127.0.0.1";
     port = 11434;
     environmentVariables = {
-      OLLAMA_FLASH_ATTENTION = "1";
-      OLLAMA_KV_CACHE_TYPE = "q8_0";
+      OLLAMA_FLASH_ATTENTION = "0";
+      OLLAMA_KV_CACHE_TYPE = "f16";
       OLLAMA_KEEP_ALIVE = "30m";
+      OLLAMA_CONTEXT_LENGTH = "16384";
+      LLAMA_ARG_FIT = "off";
     };
   };
 
