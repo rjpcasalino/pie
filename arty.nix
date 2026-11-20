@@ -152,12 +152,15 @@
   };
 
   # 10. User Account & Access
+  environment.pathsToLink = [ "/share/zsh" ];
+
   users.users.root.hashedPassword = "$y$j9T$sGr6gwgrau81kZnyzeqFq1$vzXrHa208anPwSWdR40fZ49l7Keb9A.i1Mw.sDM5rA6";
 
   users.users.rjpc = {
     isNormalUser = true;
     home = "/home/rjpc";
     description = "Ryan J.P. Casalino";
+    shell = "${pkgs.zsh}${pkgs.zsh.shellPath}";
     hashedPassword = "$y$j9T$sGr6gwgrau81kZnyzeqFq1$vzXrHa208anPwSWdR40fZ49l7Keb9A.i1Mw.sDM5rA6";
     extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" ];
     openssh.authorizedKeys.keys = [
@@ -193,7 +196,241 @@
     fprintd
     i2c-tools
     libgpiod
+    foot
+    direnv
+    fd
+    ripgrep
+    fastfetch
   ];
+
+  # 12. Foot Terminal & Zsh / Starship (matching zits)
+  programs.foot = {
+    enable = true;
+    enableZshIntegration = true;
+
+    settings = {
+      main = {
+        font = "monospace:size=12.5";
+      };
+
+      cursor = {
+        blink = "yes";
+        style = "underline";
+      };
+
+      colors-dark = {
+        # Midnight 2026 Prompt Vibe (Cool Soft Black / Muted Pastels)
+        cursor = "141417 7e9cd8";
+        background = "141417";
+        foreground = "d0d0d8";
+
+        # Normal colors
+        regular0 = "1c1c22"; # black
+        regular1 = "d97c8a"; # red (Muted Rose)
+        regular2 = "8abf9c"; # green (Muted Mint)
+        regular3 = "d4b47b"; # yellow (Soft Gold)
+        regular4 = "7e9cd8"; # blue (Powder Blue)
+        regular5 = "b893ce"; # magenta (Dusty Lavender)
+        regular6 = "78b5ba"; # cyan (Soft Cyan)
+        regular7 = "a0a0ab"; # white
+
+        # Bright colors
+        bright0 = "68687a"; # bright black (Muted Slate)
+        bright1 = "e38e9a"; # bright red (lighter rose)
+        bright2 = "9ecfbc"; # bright green (lighter mint)
+        bright3 = "e6c891"; # bright yellow (lighter gold)
+        bright4 = "90aee6"; # bright blue (lighter powder blue)
+        bright5 = "c6a3db"; # bright magenta (lighter lavender)
+        bright6 = "8bc6cb"; # bright cyan (lighter cyan)
+        bright7 = "d0d0d8"; # bright white
+      };
+
+      key-bindings = {
+        font-increase = "Control+plus Control+equal Control+KP_Add Mod4+plus Mod4+equal Mod4+KP_Add";
+        font-decrease = "Control+minus Control+KP_Subtract Mod4+minus Mod4+KP_Subtract";
+        font-reset = "Control+0 Control+KP_0 Mod4+0 Mod4+KP_0";
+      };
+    };
+  };
+
+  programs.zsh = {
+    enable = true;
+    autosuggestions.enable = true;
+    syntaxHighlighting.enable = true;
+    histSize = 10000;
+    histFile = "$HOME/.zsh_history";
+
+    setOptions = [
+      "HIST_IGNORE_ALL_DUPS"
+      "HIST_FIND_NO_DUPS"
+      "HIST_REDUCE_BLANKS"
+    ];
+
+    shellAliases = {
+      ".." = "cd ..";
+      "..." = "cd ../..";
+      "dc" = "docker compose";
+      "ddie" = "docker system prune -a --volumes";
+      "de" = "docker exec -it";
+      "dnin" = "docker network inspect";
+      "dnls" = "docker network ls";
+      "dps" = "docker ps";
+      "fd" = "fd -c never";
+      "g" = "git";
+      "ll" = "ls -l";
+      "ls" = "ls --color=auto";
+      "nd" = "nix develop";
+      "arty" = "sudo nixos-rebuild switch --flake /etc/nixos#arty";
+    };
+
+    interactiveShellInit = ''
+      # Zsh configuration is managed system-wide in /etc/zshrc; disable the
+      # first-run wizard when no ~/.z* dotfile is present in $HOME.
+      zsh-newuser-install() { :; }
+
+      eval "$(direnv hook zsh)"
+      # Force Vim keybindings (human edit)
+      bindkey -v
+      # reverse search
+      bindkey '^R' history-incremental-search-backward
+      # Explicitly bind Ctrl+A to beginning of line
+      bindkey '^A' beginning-of-line
+      # Explicitly bind Ctrl+E to end of line
+      bindkey '^E' end-of-line
+      # Fix Ctrl+Left and Ctrl+Right for jumping between words
+      bindkey '^[[1;5D' backward-word
+      bindkey '^[[1;5C' forward-word
+      # set erase character based on terminal emulator
+      if [[ "$TERM" == "xterm" ]] || [[ "$TERM" == "xterm-color" ]]; then
+          stty erase '^H'
+      else
+          stty erase '^?'
+      fi
+      # Set the path for your custom log file
+      export CMD_LOG_FILE="$HOME/.advanced_history.log"
+      export CMD_LOG_STATE="$HOME/.cmdlogger_active"
+
+      # State variables to pass data between hooks
+      typeset -g _cmdlogger_start_time
+      typeset -g _cmdlogger_current_cmd
+
+      # The control interface
+      cmdlogger() {
+          case "$1" in
+              start)
+                  touch "$CMD_LOG_STATE"
+                  echo "Logging enabled. Outputting to $CMD_LOG_FILE" ;;
+              stop)
+                  rm -f "$CMD_LOG_STATE"
+                  echo "Logging disabled." ;;
+              *) echo "Usage: cmdlogger {start|stop}" ;;
+          esac
+      }
+
+      # Hook 1: Runs right before execution
+      preexec() {
+          if [[ -f "$CMD_LOG_STATE" ]]; then
+              _cmdlogger_start_time=$(date +%s)
+              _cmdlogger_current_cmd="$1"
+          fi
+      }
+
+      # Hook 2: Runs immediately after the command finishes
+      precmd() {
+          local exit_code=$?
+
+          if [[ -f "$CMD_LOG_STATE" && -n "$_cmdlogger_current_cmd" ]]; then
+              local end_time=$(date +%s)
+              local duration=$(( end_time - _cmdlogger_start_time ))
+              local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+              local env_state=""
+              if [[ -n "$IN_NIX_SHELL" ]]; then
+                  env_state="[nix] "
+              fi
+
+              echo "[$timestamp] [Status: $exit_code] [$duration s] $USER $env_state$PWD > $_cmdlogger_current_cmd" >> "$CMD_LOG_FILE"
+
+              _cmdlogger_current_cmd=""
+          fi
+      }
+    '';
+  };
+
+  programs.starship = {
+    enable = true;
+    settings = {
+      add_newline = true;
+
+      format = ''
+        $time$username$hostname$directory$git_branch$git_status$nix_shell$cmd_duration
+        $character
+      '';
+
+      time = {
+        disabled = false;
+        time_format = "%H:%M:%S";
+        style = "bold #68687a";
+        format = "[\\[$time\\]]($style) ";
+      };
+
+      username = {
+        show_always = true;
+        style_user = "bold #8abf9c";
+        style_root = "bold #d97c8a";
+        format = "[\\[$user]($style)";
+      };
+
+      hostname = {
+        ssh_only = false;
+        style = "bold #8abf9c";
+        format = "[@$hostname\\]]($style) ";
+      };
+
+      directory = {
+        style = "bold #78b5ba";
+        format = "[\\[ $path \\]]($style) ";
+        truncation_length = 4;
+        truncate_to_repo = false;
+      };
+
+      git_branch = {
+        style = "bold #b893ce";
+        symbol = "";
+        format = "[{ $branch }]($style)";
+      };
+
+      git_status = {
+        style = "bold #d4b47b";
+        format = " [\\[$all_status$ahead_behind\\]]($style) ";
+        conflicted = "X";
+        ahead = "↑\${count}";
+        behind = "↓\${count}";
+        diverged = "↕\${ahead_count} \${behind_count}";
+        untracked = "?";
+        modified = "!";
+        staged = "+";
+        deleted = "-";
+      };
+
+      nix_shell = {
+        style = "bold #7e9cd8";
+        symbol = "";
+        format = "[\\( nix: $state \\)]($style) ";
+      };
+
+      cmd_duration = {
+        style = "bold #68687a";
+        format = "[~ $duration]($style) ";
+      };
+
+      character = {
+        success_symbol = "[>_](#8abf9c)";
+        error_symbol = "[>_](#d97c8a)";
+        vimcmd_symbol = "[<_](#7e9cd8)";
+      };
+    };
+  };
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
