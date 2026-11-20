@@ -513,6 +513,10 @@ in
 
   # 7. Biometrics & Fingerprint Reader (Synaptics Prometheus 06cb:00fc)
   services.fprintd.enable = true;
+  # Disable PAM fprintd for hyprlock/swaylock so pam_fprintd doesn't block password
+  # typing for 30s; hyprlock talks to fprintd concurrently via its native D-Bus block.
+  security.pam.services.hyprlock.fprintAuth = false;
+  security.pam.services.swaylock.fprintAuth = false;
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
       if ((action.id.indexOf("net.reactivated.fprint.") === 0 ||
@@ -616,8 +620,9 @@ in
         middle_emulation disabled
     }
 
-    ### Night Light (Gammastep)
+    ### Night Light (Gammastep) & Wallpaper Changer
     exec ${pkgs.gammastep}/bin/gammastep -l 47.60:-122.33 -t 6500:3500
+    exec systemd-cat -t wallpaper-changer ${wallpaperChanger}/bin/wallpaper-changer
 
     ### Key bindings (zits parity)
     bindsym Control+$mod+1 move scratchpad; scratchpad show
@@ -821,6 +826,18 @@ in
         ln -sf "/etc/xdg/hypr/hyprtoolkit.conf" "$user_dir/.config/hypr/hyprtoolkit.conf"
         ln -sf "/etc/xdg/hypr/hyprlauncher.conf" "$user_dir/.config/hypr/hyprlauncher.conf"
         chown -h -R "$(stat -c '%u:%g' "$user_dir")" "$user_dir/.config/hypr" || true
+
+        # Populate ~/Pictures/Wallpaper with Death of Superman + stock Hyprland wallpapers
+        mkdir -p "$user_dir/Pictures/Wallpaper"
+        if [ -f "$user_dir/Pictures/therealdeathofsuper.jpg" ]; then
+          ln -sf "$user_dir/Pictures/therealdeathofsuper.jpg" "$user_dir/Pictures/Wallpaper/therealdeathofsuper.jpg"
+        fi
+        for w in ${pkgs.hyprland}/share/hypr/wall*.png; do
+          if [ -f "$w" ]; then
+            ln -sf "$w" "$user_dir/Pictures/Wallpaper/$(basename "$w")"
+          fi
+        done
+        chown -h -R "$(stat -c '%u:%g' "$user_dir")" "$user_dir/Pictures/Wallpaper" || true
       fi
     done
     rm -f /etc/static/xdg/hypr/hyprland.conf /etc/xdg/hypr/hyprland.conf
@@ -1014,15 +1031,29 @@ in
         ignore_empty_input = true
     }
 
+    auth {
+        pam {
+            enabled = true
+            module = hyprlock
+        }
+        fingerprint {
+            enabled = true
+            ready_message = (Touch fingerprint sensor or enter password)
+            present_message = Scanning fingerprint...
+        }
+    }
+
     background {
         monitor =
-        path =
+        path = /home/rjpc/Pictures/therealdeathofsuper.jpg
         color = 0x${colors.bg}ff
+        blur_passes = 2
+        blur_size = 4
     }
 
     input-field {
         monitor =
-        size = 300, 46
+        size = 320, 46
         outline_thickness = 2
         dots_size = 0.22
         dots_spacing = 0.3
@@ -1030,7 +1061,7 @@ in
         inner_color = 0x${colors.bg}ff
         font_color = 0x${colors.fg}ff
         fade_on_empty = true
-        placeholder_text = <i>Password</i>
+        placeholder_text = <i>Password or Fingerprint</i>
         hide_input = false
         check_color = 0x${colors.green}ff
         fail_color = 0x${colors.red}ff
@@ -1049,6 +1080,17 @@ in
         font_size = 76
         font_family = Noto Sans
         position = 0, 200
+        halign = center
+        valign = center
+    }
+
+    label {
+        monitor =
+        text = $FPRINTPROMPT
+        color = 0x${colors.cyan}ff
+        font_size = 14
+        font_family = Noto Sans
+        position = 0, -180
         halign = center
         valign = center
     }
