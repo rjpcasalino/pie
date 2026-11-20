@@ -286,7 +286,7 @@ panel_mem() {
     "$(span "$WM_C_FG" "${swap:-0}G swap")"
 
   local bat
-  for d in /sys/class/power_supply/BAT*; do
+  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*bat*; do
     [ -d "$d" ] || continue
     bat="$(cat "$d/capacity" 2>/dev/null)% $(cat "$d/status" 2>/dev/null)"
     break

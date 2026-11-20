@@ -158,7 +158,7 @@ collect() {
   # --- battery ---
   BAT_STR=""
   BAT_DIR=""
-  for d in /sys/class/power_supply/BAT*; do
+  for d in /sys/class/power_supply/BAT* /sys/class/power_supply/*bat*; do
     [ -d "$d" ] || continue
     BAT_DIR="$d"
     break
