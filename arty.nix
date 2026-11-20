@@ -542,6 +542,21 @@ in
   services.xserver.enable = true;
   services.displayManager.gdm.enable = true;
   services.desktopManager.gnome.enable = true;
+  services.libinput = {
+    enable = true;
+    touchpad = {
+      tapping = false;
+      naturalScrolling = false;
+      disableWhileTyping = true;
+      clickMethod = "clickfinger";
+      middleEmulation = false;
+    };
+    mouse = {
+      tapping = false;
+      naturalScrolling = false;
+      middleEmulation = false;
+    };
+  };
 
   services.displayManager.autoLogin.enable = true;
   services.displayManager.autoLogin.user = "rjpc";
@@ -586,12 +601,19 @@ in
     set $term foot
     set $menu ${pkgs.hyprlauncher}/bin/hyprlauncher -t
 
-    ### Display & Input (ThinkPad X13s eDP-1 & TrackPoint/Touchpad)
+    ### Display & Input (ThinkPad X13s eDP-1 & TrackPoint/Touchpad matching GNOME settings)
     output eDP-1 scale 1.25
     input type:touchpad {
-        tap enabled
-        natural_scroll enabled
+        tap disabled
+        natural_scroll disabled
         dwt enabled
+        click_method clickfinger
+        middle_emulation disabled
+        scroll_method two_finger
+    }
+    input type:pointer {
+        natural_scroll disabled
+        middle_emulation disabled
     }
 
     ### Night Light (Gammastep)
@@ -841,10 +863,13 @@ in
             }
         },
         input = {
+            natural_scroll = false,
             touchpad = {
-                natural_scroll = true,
+                natural_scroll = false,
                 disable_while_typing = true,
-                tap_to_click = true,
+                tap_to_click = false,
+                clickfinger_behavior = true,
+                middle_button_emulation = false,
             }
         },
         misc = {
