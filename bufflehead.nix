@@ -26,9 +26,10 @@
   networking.useDHCP = false;
   networking.interfaces.eno1.useDHCP = true;
   networking.interfaces.wlp0s20f3.useDHCP = true;
-  networking.nameservers = [ "192.168.12.80" ];
+  networking.nameservers = [ "192.168.12.80" "127.0.0.1" ];
   networking.enableIPv6 = true;
-  networking.firewall.allowedTCPPorts = [ 80 443 2283 8085 ];
+  networking.firewall.allowedTCPPorts = [ 53 80 443 2283 8085 ];
+  networking.firewall.allowedUDPPorts = [ 53 ];
   networking.firewall.enable = true;
   security.pki.certificateFiles = [ ./certs/rock-ca.crt ];
   services.gpm.enable = false;
@@ -296,6 +297,49 @@
     fastfetch
     kiwix-tools
   ];
+
+  # Secondary LAN DNS Resolver (failover for rock.home.arpa)
+  services.unbound = {
+    enable = true;
+    settings = {
+      server = {
+        interface = [ "0.0.0.0" "::0" ];
+        port = 53;
+        access-control = [
+          "127.0.0.0/8 allow"
+          "192.168.12.0/24 allow"
+          "::1 allow"
+        ];
+        private-domain = [ "home.arpa" ];
+        local-zone = [ ''"home.arpa." static'' ];
+        local-data = [
+          ''"rock.home.arpa. IN A 192.168.12.80"''
+          ''"bridge.home.arpa. IN A 192.168.12.212"''
+          ''"zits.home.arpa. IN A 192.168.12.58"''
+          ''"bufflehead.home.arpa. IN A 192.168.12.122"''
+          ''"kiwix.home.arpa. IN A 192.168.12.122"''
+          ''"photos.home.arpa. IN A 192.168.12.122"''
+          ''"immich.home.arpa. IN A 192.168.12.122"''
+          ''"vault.home.arpa. IN A 192.168.12.122"''
+          ''"peloton.home.arpa. IN A 192.168.12.91"''
+          ''"yang.home.arpa. IN A 192.168.12.69"''
+          ''"zerocool.home.arpa. IN A 192.168.12.130"''
+          ''"arty.home.arpa. IN A 192.168.12.131"''
+        ];
+        tls-cert-bundle = "/etc/ssl/certs/ca-bundle.crt";
+      };
+      forward-zone = [
+        {
+          name = ".";
+          forward-tls-upstream = true;
+          forward-addr = [
+            "1.1.1.3@853#family.cloudflare-dns.com"
+            "1.0.0.3@853#family.cloudflare-dns.com"
+          ];
+        }
+      ];
+    };
+  };
 
   system.stateVersion = "22.11"; # Did you read the comment? Yes.
 }

@@ -890,7 +890,18 @@ in
     NIXOS_OZONE_WL = "1";
     MOZ_ENABLE_WAYLAND = "1";
     TERMINAL = "foot";
-    OLLAMA_HOST = "http://yang.home.arpa:11434";
+    OLLAMA_HOST = "http://127.0.0.1:11434";
+  };
+
+  services.ollama = {
+    enable = true;
+    host = "127.0.0.1";
+    port = 11434;
+    environmentVariables = {
+      OLLAMA_FLASH_ATTENTION = "1";
+      OLLAMA_KV_CACHE_TYPE = "q8_0";
+      OLLAMA_KEEP_ALIVE = "30m";
+    };
   };
 
   # 8b. Hyprland, Waybar, Hyprlock, Hypridle & Hyprlauncher (matching zits)
@@ -1393,6 +1404,7 @@ EOF
     nixpkgs-fmt
     nixd
     ollama
+    opencode
     yangStream
     yangLogs
     homelabSecrets
