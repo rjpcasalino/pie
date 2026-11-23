@@ -1,11 +1,10 @@
-# Building a NixOS SD image for a Raspberry Pi (Zero 2 w, 3, 3B+, 4)
+# pie — Homelab NixOS Flake & Image Builder
 
-Based off of: https://github.com/plmercereau/nixos-pi-zero-2
-Many, many thanks, plmercereau!
+NixOS flake for building and deploying homelab systems (ThinkPad X13s, `bufflehead` storage/media server, and Raspberry Pi fleet) with **Colmena**, plus a shareable **ThinkPad X13s** NixOS installer ISO and Kiwix ZIM helper scripts.
 
-<hr>
+Originally based on [plmercereau/nixos-pi-zero-2](https://github.com/plmercereau/nixos-pi-zero-2).
 
-## Repository setup
+## Repository Setup
 
 Enable the tracked git hooks once per clone:
 
@@ -15,48 +14,56 @@ git config core.hooksPath .githooks
 
 The pre-commit hook automatically scrubs staged `.nix` wireless SSID/PSK values to avoid committing secrets.
 
-<hr>
+## Hosts & Outputs
 
-1. Update `<pi>.nix`
+| Target | Arch | Role | Config |
+| :--- | :--- | :--- | :--- |
+| **`arty`** | `aarch64-linux` | Lenovo ThinkPad X13s (Snapdragon 8cx Gen 3 / SC8280XP) | `arty.nix` + `nixos-hardware` PR #1751 |
+| **`x13s-iso`** | `aarch64-linux` | Shareable minimal NixOS installer ISO for ThinkPad X13s (Linux 6.18 LTS, SC8280XP DTB/firmware, TPM2 timeout fix, breathing red-dot sleep LED; no personal setup) | `x13s-iso.nix` |
+| **`bufflehead`** | `x86_64-linux` | Storage/media server (Kiwix, OPDS, Immich, `btrfs`) | `bufflehead.nix` + Determinate Nix |
+| **`zero2w`** (`nemo`) | `aarch64-linux` | Raspberry Pi Zero 2 W | `zero2w.nix` |
+| **`zeroCool2w`** | `aarch64-linux` | Raspberry Pi Zero 2 W (`192.168.12.130`) | `zeroCool2w.nix` |
+| **`pi3Bplus`** (`nintendo`) | `aarch64-linux` | Raspberry Pi 3B+ | `pi3Bplus.nix` |
+| **`pi4B`** | `aarch64-linux` | Raspberry Pi 4B (`192.168.12.139`) | `pi4B.nix` |
 
-In particular, don't forget:
-- to configure your wifi (you will now have to use `nmtui` on first login)
-- to add an admin user able to connect through ssh / password
+## Deploying with Colmena
 
-2. Build the image
-```sh
-nix build -L .#nixosConfigurations.zero2w.config.system.build.sdImage
-```
-
-3. Copy the image in your sd card
-
-```sh
-sudo rpi-imager
-# or use dd
-DEVICE=/dev/<disk>
-sudo dd if=result/sd-image/<pi>.img of=$DEVICE bs=1M conv=fsync status=progress
-```
-
-4. Boot your Pi
-5. Connect to network
-6. Get your IP
+Deploy to a specific host or tag (`@pi`, `@laptop`, `@desktop`):
 
 ```sh
-ifconfig wlan0
+nix run .#colmena -- apply --on arty
+nix run .#colmena -- apply --on bufflehead
+nix run .#colmena -- apply --on @pi
 ```
 
-7. From another machine, rebuild the system:
+*(Raspberry Pis are configured with `buildOnTarget = false` so builds happen on the deployer rather than on low-RAM Pi hardware.)*
+
+## Building the ThinkPad X13s Installer ISO
+
+Build a clean, shareable `aarch64-linux` NixOS minimal installer ISO for the Lenovo ThinkPad X13s (requires `aarch64-linux` host or `binfmt` emulation on `x86_64-linux`):
+
 ```sh
-colmena apply --impure --on zeroCool2w
+nix build .#x13s-iso
 ```
 
-## Notes
+The resulting ISO is in `result/iso/`.
 
-- The Zero 2 doesn't have enough RAM to build itself. An initial lead was to create a swap partition, but it turns out it was a bad idea, as it would have decreased the sd card lifetime (sd cards don't like many write operations). A `zram` swap is not big enough to work. Hence the use of `deploy-rs`.
-  - Note that `nixos-rebuild --target-host` would work instead of using `deploy-rs`. but as `nixos-rebuild` is not available on Darwin, using `deploy-rs` that works both on NixOS and Darwin.
-- `boot.kernelPackages = pkgs.linuxKernel.packages.linux_rpi3` is not working...
-- the `sdImage.extraFirmwareConfig` option is not ideal as it cannot update `config.txt` after it is created in the sd image.
+## Building Raspberry Pi SD Images
 
-## See also
-- [this issue](https://github.com/NixOS/nixpkgs/issues/216886)
-- `impure` is required... not sure why `colmena apply --impure --on <target>`
+1. Update `<pi>.nix` (use `nmtui` on first login if Wi-Fi isn't pre-configured, and ensure an admin user with SSH/password is set).
+2. Build the SD image:
+   ```sh
+   nix build -L .#nixosConfigurations.zero2w.config.system.build.sdImage
+   ```
+3. Flash to an SD card:
+   ```sh
+   DEVICE=/dev/<disk>
+   sudo dd if=result/sd-image/<pi>.img of=$DEVICE bs=1M conv=fsync status=progress
+   ```
+
+## Kiwix ZIM Scripts
+
+Helper scripts for maintaining offline documentation on `bufflehead`:
+- `build-nixos-manual-zim.sh` — Builds a local NixOS manual ZIM archive.
+- `build-expo-docs-zim.sh` — Builds a local Expo docs ZIM archive.
+- `kiwix-sync.sh` / `kiwix-update.sh` — Syncs and updates ZIM libraries on `bufflehead`.

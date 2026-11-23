@@ -49,8 +49,18 @@
     {
       # nix run .#colmena -- apply --on zeroCool2w
       packages.x86_64-linux.colmena = colmena.packages.x86_64-linux.colmena;
+      packages.x86_64-linux.x13s-iso = self.nixosConfigurations.x13s-iso.config.system.build.isoImage;
+      packages.aarch64-linux.x13s-iso = self.nixosConfigurations.x13s-iso.config.system.build.isoImage;
 
       nixosConfigurations = {
+        x13s-iso = nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = [
+            "${nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+            nixos-hardware.nixosModules.lenovo-thinkpad-x13s
+            ./x13s-iso.nix
+          ];
+        };
         arty = nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
           modules = [
