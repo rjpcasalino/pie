@@ -508,20 +508,20 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.systemd-boot.configurationLimit = 10;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Kernel 7.4-rc3 with in-kernel EC driver and suspend patch (Stage 2 of patchset isolation)
+  # Kernel 7.4-rc3 with PR #1751 patchsets via fast native x86_64 cross-compilation (~10-12 min)
   boot.kernelPackages = (import pkgs.path { system = "x86_64-linux"; }).pkgsCross.aarch64-multiplatform.linuxPackages_testing;
 
   # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
   hardware.trackpoint.enable = false;
 
-  # Stage 5: enable EC driver, PCI0 BCM keepalive, TPM, deepsleep, and MST
+  # All 5 7.4-rc3 patchsets from nixos-hardware PR #1751 verified working on real hardware
   hardware.x13s.patches = {
-    camera.enable = false;
-    deepsleep.enable = true;
-    ec.enable = true;
-    mst.enable = true;
-    suspend.enable = true;
-    tpm.enable = true;
+    camera.enable = false; # 6.18-only out-of-tree patch
+    deepsleep.enable = true; # PCIe/USB/PHY CX vote dropping + GMU power gating in sleep
+    ec.enable = true; # in-kernel EC driver: platform::kbd_backlight + lid breathing LED
+    mst.enable = true; # DisplayPort Multi-Stream Transport (multi-monitor dock / daisy-chaining)
+    suspend.enable = true; # PCI0 BCM interconnect keepalive across s2idle
+    tpm.enable = true; # Qualcomm QSEECOM dTPM driver (/dev/tpm0)
   };
 
   # When hardware.x13s.patches.ec.enable is false (e.g. on unpatched kernels),
@@ -597,9 +597,10 @@ in
     "pci-pwrctrl-pwrseq"
   ];
 
-  # Disable TPM2 waiting (Qualcomm fTPM not exposed to mainline Linux).
-  # The module offers hardware.x13s.patches.tpm (out-of-tree QSEECOM dTPM
-  # driver) but that means compiling the kernel on aarch64 — not enabled.
+  # TPM2 waiting / auto-enrollment services:
+  # With hardware.x13s.patches.tpm.enable = true, /dev/tpm0 is exposed by the
+  # in-kernel qcom_qseecom dTPM driver. Keep systemd TPM waiting disabled
+  # during boot so boot proceeds without waiting on measured UKI policies.
   systemd.tpm2.enable = false;
   boot.initrd.systemd.tpm2.enable = false;
   security.tpm2.enable = false;
