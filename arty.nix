@@ -506,6 +506,7 @@ in
   # Wi-Fi + Bluetooth MAC handling, camera dma_heap udev rules, and
   # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot.configurationLimit = 10;
   boot.loader.efi.canTouchEfiVariables = true;
   # Kernel 7.4-rc3 with in-kernel EC driver and suspend patch (Stage 2 of patchset isolation)
   boot.kernelPackages = (import pkgs.path { system = "x86_64-linux"; }).pkgsCross.aarch64-multiplatform.linuxPackages_testing;
