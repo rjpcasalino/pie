@@ -507,15 +507,24 @@ in
   # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Use 6.18 LTS kernel — 7.3.4 has a QMP combo PHY / s2idle regression on SC8280XP
-  boot.kernelPackages = pkgs.linuxPackages_6_18;
+  # Kernel 7.4 (tested via linuxPackages_testing / 7.4-rc3 with nixos-hardware PR #1751 patchsets)
+  # Includes deepsleep (fixes QMP combo PHY regression on SC8280XP), in-tree EC driver,
+  # DisplayPort MST, TPM, suspend keepalive, and camera pipeline fixes.
+  boot.kernelPackages = pkgs.linuxPackages_testing;
 
-  # Enable the I2C-attached Embedded Controller bus (i2c8 @ 0xa80000, EC at 0x28)
-  # used for the sleep-LED "breathe" in powerManagement below. Replaces the
-  # hand-built dtbs/x13s-6.18.63.dtb: applied to every kernel's DTB, so it no
-  # longer freezes the device tree at 6.18.63. Verified identical (modulo
-  # phandle numbering) to the DTB arty booted with before this change.
-  hardware.deviceTree.overlays = [
+  hardware.x13s.patches = {
+    camera.enable = true;
+    deepsleep.enable = true;
+    ec.enable = true;
+    mst.enable = true;
+    suspend.enable = true;
+    tpm.enable = true;
+  };
+
+  # When hardware.x13s.patches.ec.enable is false (e.g. on unpatched kernels),
+  # fall back to the manual deviceTree overlay to enable i2c8 bus.
+  # When ec.enable is true, the kernel DTS patch provides &i2c8 and embedded-controller@28 natively.
+  hardware.deviceTree.overlays = lib.mkIf (!config.hardware.x13s.patches.ec.enable or false) [
     {
       name = "x13s-ec-i2c8";
       dtsText = ''
@@ -638,14 +647,16 @@ in
   # 6. Power & Battery Optimization
   powerManagement = {
     enable = true;
-    powerDownCommands = ''
+    # When ec.enable is true, the kernel driver handles sleep breathing via x13s_suspend / x13s_resume.
+    # When ec.enable is false, fall back to userspace i2ctransfer.
+    powerDownCommands = lib.mkIf (!config.hardware.x13s.patches.ec.enable or false) ''
       # Modern Standby Lowest Power State Entry: notify EC to pulse/breathe LED
       BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
       if [ -n "$BUS" ]; then
         ${pkgs.i2c-tools}/bin/i2ctransfer -y "$BUS" w5@0x28 0x03 0x80 0x00 0x01 0x55 || true
       fi
     '';
-    resumeCommands = ''
+    resumeCommands = lib.mkIf (!config.hardware.x13s.patches.ec.enable or false) ''
       # Modern Standby Lowest Power State Exit: notify EC to restore normal solid LED
       BUS=$(basename $(ls -d /sys/devices/platform/soc@0/ac0000.geniqup/a80000.i2c/i2c-* 2>/dev/null | head -n 1) | sed "s/i2c-//")
       if [ -n "$BUS" ]; then

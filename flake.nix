@@ -17,7 +17,7 @@
     # pinned to the PR head we tested. Switch to plain
     # "github:NixOS/nixos-hardware" once the PR is merged.
     nixos-hardware = {
-      url = "github:NixOS/nixos-hardware/7e29c61a009133ff11ece8e8353cdf374632f439";
+      url = "github:NixOS/nixos-hardware/5a198c74fde9157ed0785ddcfb64c03e2c7915b2";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
