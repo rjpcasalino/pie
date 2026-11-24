@@ -507,11 +507,21 @@ in
   # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Use 6.18 LTS kernel — 7.3/7.4 has early boot reset regressions on SC8280XP
-  boot.kernelPackages = pkgs.linuxPackages_6_18;
+  # Kernel 7.4-rc3 with in-kernel EC driver patch (Stage 1 of patchset isolation)
+  boot.kernelPackages = pkgs.pkgsCross.aarch64-multiplatform.linuxPackages_testing;
 
   # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
   hardware.trackpoint.enable = false;
+
+  # Stage 1: enable only in-kernel EC driver; keep conflicting patches disabled
+  hardware.x13s.patches = {
+    camera.enable = false;
+    deepsleep.enable = false;
+    ec.enable = true;
+    mst.enable = false;
+    suspend.enable = false;
+    tpm.enable = false;
+  };
 
   # When hardware.x13s.patches.ec.enable is false (e.g. on unpatched kernels),
   # fall back to the manual deviceTree overlay to enable i2c8 bus.
