@@ -512,6 +512,19 @@ in
   # DisplayPort MST, TPM, suspend keepalive, and camera pipeline fixes.
   boot.kernelPackages = pkgs.linuxPackages_testing;
 
+  boot.kernelParams = [
+    "regulator_ignore_unused"
+  ];
+
+  # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
+  hardware.trackpoint.enable = false;
+
+  # Override PR #1751 USB runtime PM rule that sets power/control="auto" on dwc3/xhci,
+  # which causes interconnect clock collapse / firmware reset during udev coldplug on 7.4.
+  services.udev.extraRules = lib.mkAfter ''
+    ACTION=="add|bind", SUBSYSTEM=="platform", DRIVER=="dwc3-qcom|dwc3-qcom-legacy|dwc3|xhci-hcd", TEST=="power/control", ATTR{power/control}="on"
+  '';
+
   hardware.x13s.patches = {
     camera.enable = true;
     deepsleep.enable = true;
