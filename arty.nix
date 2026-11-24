@@ -513,10 +513,10 @@ in
   # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
   hardware.trackpoint.enable = false;
 
-  # Stage 3: enable in-kernel EC driver, PCI0 BCM keepalive suspend patch, and TPM
+  # Stage 4: enable EC driver, PCI0 BCM keepalive, TPM, and deepsleep power management
   hardware.x13s.patches = {
     camera.enable = false;
-    deepsleep.enable = false;
+    deepsleep.enable = true;
     ec.enable = true;
     mst.enable = false;
     suspend.enable = true;
