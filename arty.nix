@@ -507,32 +507,11 @@ in
   # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Kernel 7.4 (tested via linuxPackages_testing / 7.4-rc3 with nixos-hardware PR #1751 patchsets)
-  # Includes deepsleep (fixes QMP combo PHY regression on SC8280XP), in-tree EC driver,
-  # DisplayPort MST, TPM, suspend keepalive, and camera pipeline fixes.
-  boot.kernelPackages = pkgs.linuxPackages_testing;
-
-  boot.kernelParams = [
-    "regulator_ignore_unused"
-  ];
+  # Use 6.18 LTS kernel — 7.3/7.4 has early boot reset regressions on SC8280XP
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
 
   # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
   hardware.trackpoint.enable = false;
-
-  # Override PR #1751 USB runtime PM rule that sets power/control="auto" on dwc3/xhci,
-  # which causes interconnect clock collapse / firmware reset during udev coldplug on 7.4.
-  services.udev.extraRules = lib.mkAfter ''
-    ACTION=="add|bind", SUBSYSTEM=="platform", DRIVER=="dwc3-qcom|dwc3-qcom-legacy|dwc3|xhci-hcd", TEST=="power/control", ATTR{power/control}="on"
-  '';
-
-  hardware.x13s.patches = {
-    camera.enable = true;
-    deepsleep.enable = true;
-    ec.enable = true;
-    mst.enable = true;
-    suspend.enable = true;
-    tpm.enable = true;
-  };
 
   # When hardware.x13s.patches.ec.enable is false (e.g. on unpatched kernels),
   # fall back to the manual deviceTree overlay to enable i2c8 bus.
