@@ -582,7 +582,6 @@ in
     "dispcc-sc8280xp"
     "phy-qcom-edp"
     "panel-edp"
-    "msm"
     "pwm_bl"
     "leds-qcom-lpg"
 
@@ -590,6 +589,11 @@ in
     "i2c-hid"
     "i2c-hid-of"
     "i2c-qcom-geni"
+  ] ++ lib.optionals (lib.versionOlder config.boot.kernelPackages.kernel.version "7") [
+    "msm"
+  ] ++ lib.optionals (lib.versionAtLeast config.boot.kernelPackages.kernel.version "7") [
+    "pwrseq-qcom-wcn"
+    "pci-pwrctrl-pwrseq"
   ];
 
   # Disable TPM2 waiting (Qualcomm fTPM not exposed to mainline Linux).
