@@ -507,19 +507,19 @@ in
   # enableRedistributableFirmware. Only arty-specific deltas live below.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  # Kernel 7.4-rc3 with in-kernel EC driver patch (Stage 1 of patchset isolation)
-  boot.kernelPackages = pkgs.pkgsCross.aarch64-multiplatform.linuxPackages_testing;
+  # Kernel 7.4-rc3 with in-kernel EC driver and suspend patch (Stage 2 of patchset isolation)
+  boot.kernelPackages = (import pkgs.path { system = "x86_64-linux"; }).pkgsCross.aarch64-multiplatform.linuxPackages_testing;
 
   # TrackPoint on X13s is I2C/HID; disable legacy PS/2 trackpoint service
   hardware.trackpoint.enable = false;
 
-  # Stage 1: enable only in-kernel EC driver; keep conflicting patches disabled
+  # Stage 2: enable in-kernel EC driver and PCI0 BCM keepalive suspend patch
   hardware.x13s.patches = {
     camera.enable = false;
     deepsleep.enable = false;
     ec.enable = true;
     mst.enable = false;
-    suspend.enable = false;
+    suspend.enable = true;
     tpm.enable = false;
   };
 
